@@ -368,7 +368,12 @@ def load_quotes():
 # ---------- 模块 ----------
 def draw_header(draw, d, y):
     now = display_now()
-    date_label = now.strftime('%d.%m.%Y')
+    if LANG == 'ru':
+        months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря']
+        weekdays = ['понедельник','вторник','среда','четверг','пятница','суббота','воскресенье']
+        date_label = f"{now.day} {months[now.month - 1]} {now.year}, {weekdays[now.weekday()]}"
+    else:
+        date_label = now.strftime('%d.%m.%Y, %A')
     city = (d.get('weather') or {}).get('city') or ''
     fd = f(F_DATE, bold=True)
     draw.text((PAD, y), date_label, fill=BLACK, font=fd)
