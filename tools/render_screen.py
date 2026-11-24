@@ -297,8 +297,7 @@ def clip_sentence(draw, s, font, max_w):
     s = ' '.join((s or '').split())
     if not s:
         return s
-    if tw(draw, s, font) <= max_w:
-        return s
+    if tw(draw, s, font) <= max_w:        return s
     parts = [p for p in _SENT_SPLIT.split(s) if p]
     out = ''
     idx = 0
@@ -597,8 +596,7 @@ def draw_ai(draw, d, y):
     for i, (name, val, pct) in enumerate(rows):
         ry = y + i * (F_BODY + bar_h + gap)
         draw.text((PAD, ry), name, fill=BLACK, font=ff)
-        right = SCREEN_W - PAD if pct is None else SCREEN_W - PAD - bar_w - 20
-        draw.text((right - tw(draw, val, fs), ry + 4), val, fill=GRAY, font=fs)
+        right = SCREEN_W - PAD if pct is None else SCREEN_W - PAD - bar_w - 20        draw.text((right - tw(draw, val, fs), ry + 4), val, fill=GRAY, font=fs)
         if pct is None:
             continue
         bx = SCREEN_W - PAD - bar_w
@@ -897,8 +895,7 @@ def draw_slow_calendar(draw, d, y):
 
     # 第四行：下一个公历固定日子
     if holiday:
-        zh, en, _, days = holiday
-        if LANG == 'en':
+        zh, en, _, days = holiday        if LANG == 'en':
             line = '%s in %dd' % (en, days) if days else '%s is today' % en
         else:
             line = '距%s %d 天' % (zh, days) if days else '今天是%s' % zh
@@ -1096,7 +1093,7 @@ def render(d, out_path=None, language="zh", page=1, pages=1):
         mods = [registry['slow_calendar'], registry['sun'], registry['forecast']] if page == 2 \
             else [registry[name] for name in LAYOUT['modules']]
         # 页 2 只有三个模块，间距放宽一点才不像一张挤在顶部的清单。
-        gap = 34 if page == 2 else 14
+        gap = 34 if page == 2 else 4
         for fn in mods:
             y = fn(y)
             hline(draw, y + 8, GRAY, 1)
