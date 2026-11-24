@@ -650,12 +650,12 @@ def draw_fx(draw, d, y):
         draw.text((PAD, y), 'Курсы валют временно недоступны', fill=GRAY, font=f(F_SMALL))
         return y + F_SMALL
     base = fx.get('base') or 'EUR'
-    rows = [('USD', fx.get('usd')), ('UAH', fx.get('uah'))]
+    base_symbol = '€' if base == 'EUR' else ('$' if base == 'USD' else '')
+    rows = [('USD', '$', fx.get('usd')), ('UAH', '₴', fx.get('uah'))]
     ff = f(F_BODY)
-    for i, (code, value) in enumerate(rows):
-        base_symbol = '€' if base == 'EUR' else ('
+    for i, (code, symbol, value) in enumerate(rows):
         rate = ('%.4f' % value).rstrip('0').rstrip('.') if isinstance(value, (int, float)) else '—'
-        line = label + rate + (' 
+        line = '1 %s = %s %s' % (base_symbol or base, rate, symbol)
         draw.text((PAD, y + i * (F_BODY + 6)), line, fill=BLACK, font=ff)
     cross = fx.get('usdUah')
     rate = ('%.4f' % cross).rstrip('0').rstrip('.') if isinstance(cross, (int, float)) else '—'
