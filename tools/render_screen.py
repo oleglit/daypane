@@ -89,6 +89,7 @@ def tr(text):
             '新闻源暂不可用': 'Новостные источники недоступны',
             '天气': 'Погода',
             '天气不可用': 'Погода недоступна',
+            '市场': 'Рынки',
             '世界时钟': 'Мировое время',
             '时钟不可用': 'Время недоступно',
             '慢信息': 'Календарь и природа',
@@ -406,6 +407,37 @@ def draw_title(draw, y, text, src=None):
         draw.text((SCREEN_W - PAD - tw(draw, label, fs), y + (F_TITLE - F_SMALL)),
                   label, fill=GRAY, font=fs)
     return y + F_TITLE + 8
+
+def draw_month_calendar(draw, d, y):
+    """Компактная сетка текущего месяца, неделя начинается с понедельника."""
+    y = draw_title(draw, y, 'Календарь')
+    now = display_now()
+    months = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']
+    weekdays = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс']
+    title = '%s %d' % (months[now.month - 1], now.year)
+    draw.text((PAD, y), title, fill=BLACK, font=f(F_BODY, bold=True))
+    y += F_BODY + 14
+    colw = CONTENT_W // 7
+    for i, label in enumerate(weekdays):
+        x = PAD + i * colw
+        draw.text((x + (colw - tw(draw, label, f(F_SMALL))) // 2, y), label, fill=GRAY, font=f(F_SMALL, bold=True))
+    y += F_SMALL + 12
+    import calendar as _calendar
+    weeks = _calendar.monthcalendar(now.year, now.month)
+    cell_h = 43
+    for row_index, week in enumerate(weeks):
+        for col, day in enumerate(week):
+            if not day:
+                continue
+            label = str(day)
+            font = f(F_BODY, bold=(day == now.day))
+            x = PAD + col * colw
+            if day == now.day:
+                draw.rounded_rectangle([x + 10, y + row_index * cell_h - 3, x + colw - 10, y + row_index * cell_h + 37], radius=8, fill=BLACK)
+                draw.text((x + (colw - tw(draw, label, font)) // 2, y + row_index * cell_h), label, fill=WHITE, font=font)
+            else:
+                draw.text((x + (colw - tw(draw, label, font)) // 2, y + row_index * cell_h), label, fill=BLACK, font=font)
+    return y + len(weeks) * cell_h
 
 def draw_news(draw, d, y):
     """今日新闻 · AI：中文一句话，按自然标点断句，绝不超页宽"""
@@ -878,6 +910,7 @@ def render(d, out_path=None, language="zh", page=1, pages=1):
         'weather': lambda y: draw_weather(draw, d, y),
         'market': lambda y: draw_market(draw, d, y),
         'clocks': lambda y: draw_clocks(draw, d, y),
+        'calendar': lambda y: draw_month_calendar(draw, d, y),
         'mlb': lambda y: draw_mlb(draw, d, y),
         'quote': lambda y: draw_quote(draw, d, y, quotes),
         'slow_calendar': lambda y: draw_slow_calendar(draw, d, y),
