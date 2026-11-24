@@ -297,7 +297,9 @@ def clip_sentence(draw, s, font, max_w):
     s = ' '.join((s or '').split())
     if not s:
         return s
-    if tw(draw, s, font) <= max_w:        return s    parts = [p for p in _SENT_SPLIT.split(s) if p]
+    if tw(draw, s, font) <= max_w:
+        return s
+    parts = [p for p in _SENT_SPLIT.split(s) if p]
     out = ''
     idx = 0
     for i, p in enumerate(parts):
