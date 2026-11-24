@@ -102,17 +102,14 @@ KindleDash.sha256 = sha256
 function KindleDash:loadLanguage()
     local settings = LuaSettings:open(self:settingsPath())
     local saved = settings:readSetting("language")
-    if saved == "zh" or saved == "en" then return saved end
-    if settings:has("host") or settings:has("cloud") or settings:has("port") then
-        settings:saveSetting("language", "zh")
+    -- DayPane cloud content is Russian by default, independently of KOReader UI locale.
+    -- Older releases auto-selected English/Chinese from the device language; migrate
+    -- those implicit choices to Russian so the dashboard does not unexpectedly appear in English.
+    if saved ~= "ru" then
+        settings:saveSetting("language", "ru")
         settings:flush()
-        return "zh"
     end
-    local locale = G_reader_settings and G_reader_settings:readSetting("language") or "en"
-    local language = tostring(locale):lower():match("^zh") and "zh" or "en"
-    settings:saveSetting("language", language)
-    settings:flush()
-    return language
+    return "ru"
 end
 
 local EN = {
@@ -299,10 +296,9 @@ function KindleDash:loadCloud()
     if ok and s and s:has("cloud") then
         local cloud = s:readSetting("cloud") or DEFAULT_CLOUD
         local legacy = "https://shenliucn-prog.github.io/shawn-kanban/"
-        if cloud == legacy .. "screen.png" then
+        if cloud == legacy .. "screen.png" or cloud == legacy .. "screen-en.png"
+            or cloud == DEFAULT_CLOUD:gsub("screen.png$", "screen-en.png") then
             cloud = DEFAULT_CLOUD
-        elseif cloud == legacy .. "screen-en.png" then
-            cloud = DEFAULT_CLOUD:gsub("screen.png$", "screen-en.png")
         end
         if cloud ~= s:readSetting("cloud") then
             s:saveSetting("cloud", cloud)
@@ -310,7 +306,7 @@ function KindleDash:loadCloud()
         end
         return cloud
     end
-    return self.language == "en" and DEFAULT_CLOUD:gsub("screen.png$", "screen-en.png") or DEFAULT_CLOUD
+    return DEFAULT_CLOUD
 end
 function KindleDash:saveCloud(url)
     local ok, s = pcall(function() return LuaSettings:open(self:settingsPath()) end)
@@ -490,7 +486,7 @@ end
 
 function KindleDash:endpoints()
     local list = {}
-    local lang = self.language == "en" and "en" or "zh"
+    local lang = self.language == "en" and "en" or "ru"
     local page = self:currentPage()
     -- 设置对话框里用户手输的内容要洗干净：粘了 "http://" 前缀、尾部斜杠或
     -- 空格时，以前会拼出 "http://http://host//api/screen" 这种永远连不上的 URL。
