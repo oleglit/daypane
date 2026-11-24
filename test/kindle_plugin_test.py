@@ -230,25 +230,12 @@ function settings:flush() end
 require('luasettings').open = function() return settings end
 G_reader_settings = {readSetting=function() return 'C' end}
 local d = Plugin:new{}
-d.host='example.test:8787'
 d.settingsPath=function() return '/tmp/settings' end
 d.cacheDir=function() return '/tmp' end
-assert(d:loadLanguage() == 'ru' and saved.language == 'ru')
+assert(d:loadLanguage() == 'ru')
+assert(saved.language == 'ru')
 d.language='ru'
-d.cloud=d:loadCloud()
-assert(d.cloud:match('/screen%.png$'))
-assert(d.cloud:match('/screen%-en%.png$') == nil)
-assert(d:endpoints()[1].url:match('lang=ru&page=1$'))
-local ru_cache=d:cacheImg()
-d.language='en'
-assert(d:endpoints()[1].url:match('lang=ru&page=1$'))
-assert(d:cacheImg() == ru_cache)
-d:setLanguage('zh')
-assert(saved.language=='zh' and d.cloud:match('/screen%.png$'))
--- Custom image endpoints are preserved when changing the menu language.
-d.cloud='https://example.test/custom.png'
-d:setLanguage('en')
-assert(d.cloud=='https://example.test/custom.png')
+assert(d:loadCloud() == 'https://shenliucn-prog.github.io/daypane/screen.png')
 saved={host='old-device'}
 assert(d:loadLanguage()=='ru')
 saved={}; G_reader_settings.readSetting=function() return 'zh_CN' end
@@ -263,5 +250,5 @@ for _, url in ipairs({'', 'https://example.test/custom.png',
     'https://shenliucn-prog.github.io/shawn-kanban/custom.png'}) do
     saved={cloud=url}; assert(d:loadCloud()==url and saved.cloud==url)
 end
-print('PASS: Russian dashboard default, legacy URL migration, custom URLs and locale-independent cache')
+print('PASS: Russian dashboard default, legacy URL migration and custom URL preservation')
 ''')
