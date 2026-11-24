@@ -27,9 +27,10 @@
   "display": {
     "preset": "daily",
     "modules": [
+      "news",
       "weather",
       "clocks",
-      "quote"
+      "calendar"
     ],
     "width": 1072,
     "height": 1448,
