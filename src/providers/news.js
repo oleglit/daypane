@@ -17,7 +17,7 @@ const ENTITIES = {
 function cleanTitle(raw) {
   return String(raw || '')
     .replace(/<[^>]+>/g, '')
-    .replace(/&(#x[0-9a-f]+|#\\d+|[a-z]+);/gi, (m, code) => {
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, code) => {
       const key = code.toLowerCase();
       if (key[0] === '#') {
         const n = key[1] === 'x' ? parseInt(key.slice(2), 16) : parseInt(key.slice(1), 10);
@@ -28,16 +28,16 @@ function cleanTitle(raw) {
       }
       return Object.prototype.hasOwnProperty.call(ENTITIES, key) ? ENTITIES[key] : m;
     })
-    .replace(/\\s+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
 function parseRss(xml, source, max) {
-  const items = xml.match(/<item(?:\\s[^>]*)?>[\\s\\S]*?<\\/item>/gi) || [];
+  const items = xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/gi) || [];
   const out = [];
   for (const item of items) {
-    const title = item.match(/<title>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/title>/i);
-    const link = item.match(/<link>([\\s\\S]*?)<\\/link>/i);
+    const title = item.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
+    const link = item.match(/<link>([\s\S]*?)<\/link>/i);
     const value = title ? cleanTitle(title[1]) : '';
     if (value) out.push({ title: value, source, url: link ? cleanTitle(link[1]) : '' });
     if (out.length >= max) break;
