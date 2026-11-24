@@ -27,9 +27,9 @@
   "display": {
     "preset": "daily",
     "modules": [
-      "news",
       "weather",
       "clocks",
+      "fx",
       "calendar"
     ],
     "width": 1072,
