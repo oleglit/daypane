@@ -1,4 +1,5 @@
 name: Render Kindle Screen
+# Re-run screen generation after renderer syntax fix.
 
 on:
   # Backup only: external cron-job.org dispatch is the primary half-hour trigger.
