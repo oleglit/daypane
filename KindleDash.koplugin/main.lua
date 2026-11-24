@@ -40,6 +40,11 @@ local RenderImage = require("ui/renderimage")
 local lfs = require("libs/libkoreader-lfs")
 local logger = require("logger")
 local JSON = require("json")
+local OverlapGroup = require("ui/widget/overlapgroup")
+local FrameContainer = require("ui/widget/container/framecontainer")
+local TextWidget = require("ui/widget/textwidget")
+local Font = require("ui/font")
+local Blitbuffer = require("ffi/blitbuffer")
 
 -- 网络请求超时：电脑关机时不要让用户等太久，8 秒无响应就切换下一级。
 -- 只在本次请求期间生效：socket.http 是 KOReader 全局模块，永久把它改成 8 秒
@@ -687,6 +692,55 @@ end
 
 -- ---------------- 显示 ----------------
 
+-- Live clock overlay: the PNG remains a 30-minute snapshot, while this
+-- small footer is redrawn locally once per minute (no network request).
+function KindleDash:liveClockText()
+    local now = os.time()
+    local utc = os.date("!*t", now)
+    local function lastSunday(month, last_day)
+        local weekday_last = ((utc.wday - 1 + last_day - utc.day) % 7) + 1
+        return last_day - (weekday_last - 1)
+    end
+    local march_sunday = lastSunday(3, 31)
+    local october_sunday = lastSunday(10, 31)
+    local dst = (utc.month > 3 and utc.month < 10)
+        or (utc.month == 3 and (utc.day > march_sunday or (utc.day == march_sunday and utc.hour >= 1)))
+        or (utc.month == 10 and (utc.day < october_sunday or (utc.day == october_sunday and utc.hour < 1)))
+    local riga_offset = dst and 3 or 2
+    local kyiv_offset = dst and 3 or 2
+    local london_offset = dst and 1 or 0
+    local function time_at(offset)
+        return os.date("!%H:%M", now + offset * 3600)
+    end
+    return "Рига  " .. time_at(riga_offset) .. "     Киев  " .. time_at(kyiv_offset)
+        .. "     Лондон  " .. time_at(london_offset)
+end
+
+function KindleDash:stopLiveClock()
+    if self._clock_timer then
+        UIManager:unschedule(self._clock_timer)
+        self._clock_timer = nil
+    end
+end
+
+function KindleDash:armLiveClock()
+    self:stopLiveClock()
+    if not self.dash_widget or not self._clock_text or self._suspended or self:currentPage() ~= 1 then
+        return
+    end
+    local delay = 60 - (os.time() % 60)
+    self._clock_timer = function()
+        self._clock_timer = nil
+        if not self.dash_widget or self._suspended or not self._clock_text then return end
+        self._clock_text:setText(self:liveClockText())
+        if self._clock_frame and self._clock_frame.dimen then
+            UIManager:setDirty(self.dash_widget, "ui", self._clock_frame.dimen)
+        end
+        self:armLiveClock()
+    end
+    UIManager:scheduleIn(delay, self._clock_timer)
+end
+
 function KindleDash:buildScreen(img_path, w, h)
     local dash = self
     local img = ImageWidget:new{
@@ -697,7 +751,36 @@ function KindleDash:buildScreen(img_path, w, h)
         file_do_cache = false,
     }
     local container = InputContainer:new{ dimen = Geom:new{ w = w, h = h } }
-    container[1] = img
+    if self:currentPage() == 1 then
+        local clock_text = TextWidget:new{
+            text = self:liveClockText(),
+            face = Font:getFace("cfont", 25),
+            padding = 0,
+            fgcolor = Blitbuffer.COLOR_BLACK,
+            max_width = w - 48,
+        }
+        local clock_frame = FrameContainer:new{
+            clock_text,
+            width = w - 40,
+            height = 42,
+            background = Blitbuffer.COLOR_WHITE,
+            bordersize = 0,
+            padding = 5,
+            margin = 0,
+        }
+        clock_frame.overlap_offset = { 20, h - 96 }
+        self._clock_text = clock_text
+        self._clock_frame = clock_frame
+        container[1] = OverlapGroup:new{
+            dimen = Geom:new{ w = w, h = h },
+            img,
+            clock_frame,
+        }
+    else
+        self._clock_text = nil
+        self._clock_frame = nil
+        container[1] = img
+    end
     -- 吃手势，防止 KOReader 的翻页/退出穿透到看板上。
     container.ges_events = {
         TapScroll = { GestureRange:new{ ges = "tap", range = function() return container.dimen end } },
@@ -735,6 +818,9 @@ function KindleDash:buildScreen(img_path, w, h)
         dash.dash_widget = nil
         dash._shown_path = nil
         dash._shown_offline = nil
+        dash:stopLiveClock()
+        dash._clock_text = nil
+        dash._clock_frame = nil
         -- 看板不在了：停止定时刷新，也不再阻止设备休眠。
         dash:holdScreen(false)
         dash:armAutoRefresh()
@@ -784,6 +870,7 @@ function KindleDash:showDashboard(path, offline)
     self.dash_widget = result
     self._shown_path = path
     self._shown_offline = offline
+    self:armLiveClock()
     -- 看板已在屏上：进入常亮模式，让 UI 定时器能按点刷新。
     if self:option("hold_screen", true) and not self._suspended then
         self:holdScreen(true)
@@ -1073,6 +1160,7 @@ end
 -- ---------------- 生命周期 ----------------
 
 function KindleDash:onSuspend()
+    self:stopLiveClock()
     self:releaseNetwork()
     self._suspended = true
     if self._resume_tick then UIManager:unschedule(self._resume_tick) end
@@ -1102,6 +1190,7 @@ function KindleDash:onSuspend()
 end
 
 function KindleDash:onResume()
+    self:armLiveClock()
     self._suspended = false
     self._busy = false
     self._generation = (self._generation or 0) + 1
@@ -1126,6 +1215,7 @@ function KindleDash:onResume()
 end
 
 function KindleDash:onCloseWidget()
+    self:stopLiveClock()
     self._generation = (self._generation or 0) + 1
     self:releaseNetwork()
     -- 只收定时器，不改 auto_on：这个回调不只退出时触发（插件从菜单注销等也会），
@@ -1150,6 +1240,9 @@ function KindleDash:init()
     self.page = self:currentPage()   -- 钳制旧设置里的越界值
     self.dash_widget = nil
     self._auto_timer = nil
+    self._clock_timer = nil
+    self._clock_text = nil
+    self._clock_frame = nil
     self._resume_tick = nil
     self._rtc_task = nil
     self._deferred = nil
