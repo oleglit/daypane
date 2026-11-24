@@ -15,8 +15,8 @@ export async function getFx() {
     };
     const usd = num(rates.USD);
     const uah = num(rates.UAH);
-    const gbp = num(rates.GBP);
-    if (usd === null && uah === null && gbp === null) {
+    const usdUah = usd && uah !== null ? uah / usd : null;
+    if (usd === null && uah === null) {
       return { ok: false, error: 'invalid FX payload', base };
     }
     return {
@@ -25,7 +25,7 @@ export async function getFx() {
       updated: r.data.time_last_update_utc,
       usd,
       uah,
-      gbp,
+      usdUah,
       source: 'open.er-api.com'
     };
   });
