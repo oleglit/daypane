@@ -368,26 +368,13 @@ def load_quotes():
 # ---------- 模块 ----------
 def draw_header(draw, d, y):
     now = display_now()
-    day = now.strftime('%d')
-    wd = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][now.weekday()] if LANG == 'ru' else '一二三四五六日'[now.weekday()]
-    if LANG == 'en':
-        mw = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.month-1] + ' ' + ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][now.weekday()]
-    elif LANG == 'ru':
-        mw = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'][now.month-1] + ', ' + ['понедельник','вторник','среда','четверг','пятница','суббота','воскресенье'][now.weekday()]
-    else:
-        mw = '%d月 周%s' % (now.month, wd)
-    ts = now.strftime('%H:%M')
+    date_label = now.strftime('%d.%m.%Y')
     city = (d.get('weather') or {}).get('city') or ''
     fd = f(F_DATE, bold=True)
-    draw.text((PAD, y), day, fill=BLACK, font=fd)
-    dw = tw(draw, day, fd)
-    draw.text((PAD + dw + 24, y + 16), mw, fill=BLACK, font=f(F_MONTH, bold=True))
-    ft = f(F_TIME, bold=True)
-    tw_s = tw(draw, ts, ft)
-    draw.text((SCREEN_W - PAD - tw_s, y - 6), ts, fill=BLACK, font=ft)
+    draw.text((PAD, y), date_label, fill=BLACK, font=fd)
     if city:
         fs = f(F_SMALL)
-        draw.text((SCREEN_W - PAD - tw(draw, city, fs), y + F_TIME + 6), city, fill=GRAY, font=fs)
+        draw.text((SCREEN_W - PAD - tw(draw, city, fs), y + 28), city, fill=GRAY, font=fs)
     return y + round(112 * (LAYOUT["fontScale"] if LAYOUT else 1))
 
 def stamp_label(src):
@@ -396,6 +383,8 @@ def stamp_label(src):
     stale（本次拉取失败、用的是上次成功数据）时标成「缓存 HH:MM」。
     拿不到时间就返回 None，标题栏保持原样。
     """
+    # User requested a time-free dashboard: never print fetch timestamps.
+    return None
     if not isinstance(src, dict):
         return None
     ts = src.get('fetchedAt')
@@ -595,8 +584,8 @@ def draw_weather(draw, d, y):
         bottom = draw.textbbox((PAD, y), t1, font=ft)[3] + 8
         days = (w.get('days') or [])[1:4]
         if days:
-            ff = f(F_SMALL)
-            row_y = bottom + 8
+            ff = f(F_SMALL * 2, bold=True)
+            row_y = bottom + 16
             for i, day in enumerate(days):
                 raw = str(day.get('date') or '')
                 try:
@@ -609,12 +598,16 @@ def draw_weather(draw, d, y):
                     date_label = raw or '—'
                 condition = day.get('text') or '—'
                 temps = '%s° / %s°' % (fnum(day.get('high')), fnum(day.get('low')))
-                ry = row_y + i * (F_SMALL + 10)
+                ry = row_y + i * (F_SMALL * 2 + 18)
                 draw.text((PAD, ry), date_label, fill=BLACK, font=ff)
-                draw_weather_icon(draw, PAD + 190, ry - 3, day.get('code'))
-                draw.text((PAD + 245, ry), clip(draw, condition, ff, 350), fill=GRAY, font=ff)
+                icon_x, icon_y = PAD + 205, ry - 12
+                icon_base = Image.new('L', (48, 48), WHITE)
+                draw_weather_icon(ImageDraw.Draw(icon_base), 0, 0, day.get('code'), size=44)
+                icon_large = icon_base.resize((88, 88), Image.Resampling.NEAREST)
+                draw._image.paste(icon_large, (icon_x, icon_y))
+                draw.text((PAD + 315, ry), clip(draw, condition, ff, 330), fill=GRAY, font=ff)
                 draw.text((SCREEN_W - PAD - tw(draw, temps, ff), ry), temps, fill=BLACK, font=ff)
-            bottom = row_y + len(days) * (F_SMALL + 10)
+            bottom = row_y + len(days) * (F_SMALL * 2 + 18)
         return bottom
     else:
         draw.text((PAD, y), tr('天气不可用'), fill=GRAY, font=f(F_SMALL))
