@@ -28,7 +28,6 @@
     "preset": "daily",
     "modules": [
       "weather",
-      "clocks",
       "fx",
       "calendar"
     ],
