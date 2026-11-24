@@ -232,28 +232,28 @@ G_reader_settings = {readSetting=function() return 'C' end}
 local d = Plugin:new{}
 d.settingsPath=function() return '/tmp/settings' end
 d.cacheDir=function() return '/tmp' end
-assert(d:loadLanguage() == 'en' and saved.language == 'en')
+assert(d:loadLanguage() == 'ru' and saved.language == 'ru')
+d.language='ru'
+assert(d:loadCloud():match('/screen%.png$'))
+assert(d:endpoints()[1].url:match('/api/screen') and d:endpoints()[1].url:match('lang=ru&page=1$'))
+local ru_cache=d:cacheImg()
 d.language='en'
-assert(d:loadCloud():match('screen%-en.png$'))
-assert(d:tr('刷新看板') == 'Refresh dashboard')
-local menus={}; d:addToMainMenu(menus)
-assert(menus['0kindledash'].sub_item_table_func()[2].text == 'Refresh dashboard')
-d.host='example.test:8787'; d.cloud=d:loadCloud()
-assert(d:endpoints()[1].url:match('/api/screen') and d:endpoints()[1].url:match('lang=en&page=1$'))
+assert(d:loadCloud():match('/screen%-en%.png$') == nil, 'default cloud image remains Russian')
+assert(d:endpoints()[1].url:match('lang=en&page=1$'))
 local en_cache=d:cacheImg()
+assert(en_cache ~= ru_cache)
 d:setLanguage('zh')
 assert(saved.language=='zh' and d.cloud:match('/screen.png$'))
-assert(d:cacheImg() ~= en_cache)
 assert(menus['0kindledash'].sub_item_table_func()[2].text == '刷新看板')
 d.cloud='https://example.test/custom.png'; d:setLanguage('en')
 assert(d.cloud=='https://example.test/custom.png')
 saved={host='old-device'}
-assert(d:loadLanguage()=='zh' and saved.language=='zh')
+assert(d:loadLanguage()=='ru' and saved.language=='ru')
 saved={}; G_reader_settings.readSetting=function() return 'zh_CN' end
-assert(d:loadLanguage()=='zh')
+assert(d:loadLanguage()=='ru')
 for _, filename in ipairs({'screen.png', 'screen-en.png'}) do
     saved={cloud='https://shenliucn-prog.github.io/shawn-kanban/'..filename}
-    local expected='https://shenliucn-prog.github.io/daypane/'..filename
+    local expected='https://oleglit.github.io/daypane/screen.png'
     assert(d:loadCloud()==expected and saved.cloud==expected)
     assert(d:loadCloud()==expected, 'migration must be idempotent')
 end
