@@ -264,33 +264,3 @@ saved={}
 print('PASS: legacy built-in URL migration preserves custom and empty URLs')
 print('PASS: Russian dashboard default, legacy URL migration, custom URLs and locale caches')
 ''')
-))
-local ru_cache=d:cacheImg()
-d.language='en'
-assert(d:loadCloud():match('/screen%-en%.png$') == nil, 'default cloud image remains Russian')
-assert(d:endpoints()[1].url:match('lang=en&page=1$'))
-local en_cache=d:cacheImg()
-assert(en_cache ~= ru_cache)
-d:setLanguage('zh')
-assert(saved.language=='zh' and d.cloud:match('/screen.png$'))
--- Menu labels are independent of dashboard image language.
-d.cloud='https://example.test/custom.png'; d:setLanguage('en')
-assert(d.cloud=='https://example.test/custom.png')
-saved={host='old-device'}
-assert(d:loadLanguage()=='ru')
-saved={}; G_reader_settings.readSetting=function() return 'zh_CN' end
-assert(d:loadLanguage()=='ru')
-for _, filename in ipairs({'screen.png', 'screen-en.png'}) do
-    saved={cloud='https://shenliucn-prog.github.io/shawn-kanban/'..filename}
-    local expected='https://oleglit.github.io/daypane/screen.png'
-    assert(d:loadCloud()==expected and saved.cloud==expected)
-    assert(d:loadCloud()==expected, 'migration must be idempotent')
-end
-for _, url in ipairs({'', 'https://example.test/custom.png',
-    'https://shenliucn-prog.github.io/shawn-kanban/custom.png'}) do
-    saved={cloud=url}; assert(d:loadCloud()==url and saved.cloud==url)
-end
-saved={}
-print('PASS: legacy built-in URL migration preserves custom and empty URLs')
-print('PASS: Russian dashboard default, legacy URL migration, custom URLs and locale caches')
-''')
