@@ -553,8 +553,29 @@ def draw_weather(draw, d, y):
         tw1 = tw(draw, t1, ft)
         det = ('%s  H%s L%s  RH%s%%' if LANG == 'en' else ('%s  макс. %s° мин. %s°  влажн. %s%%' if LANG == 'ru' else '%s  高%s 低%s  湿%s%%')) % (w.get('text', ''), fnum(w.get('high')), fnum(w.get('low')), w.get('humidity', '?'))
         draw.text((PAD + tw1 + 24, y + 14), det, fill=GRAY, font=f(F_SMALL))
-        # 温度大字用 56px 字体，实际字形高度超过 F_BIG，固定 y+F_BIG 会让字形底部压过分隔线
-        return draw.textbbox((PAD, y), t1, font=ft)[3] + 8
+        # Add the next three days directly to the main Kindle screen (today is excluded).
+        bottom = draw.textbbox((PAD, y), t1, font=ft)[3] + 8
+        days = (w.get('days') or [])[1:4]
+        if days:
+            ff = f(F_SMALL)
+            row_y = bottom + 8
+            for i, day in enumerate(days):
+                raw = str(day.get('date') or '')
+                try:
+                    parts = [int(x) for x in raw.split('-') if x.isdigit()]
+                    month, dom = parts[-2], parts[-1]
+                    weekday = 'ПнВтСрЧтПтСбВс'[_date_weekday(today_year(), month, dom) * 2:_date_weekday(today_year(), month, dom) * 2 + 2] if LANG == 'ru' else WEEKDAY_EN[_date_weekday(today_year(), month, dom)]
+                    date_label = '%02d.%02d %s' % (dom, month, weekday) if LANG == 'ru' else '%s %d' % (weekday, dom)
+                except (ValueError, IndexError):
+                    date_label = raw or '—'
+                condition = day.get('text') or '—'
+                temps = '%s° / %s°' % (fnum(day.get('high')), fnum(day.get('low')))
+                ry = row_y + i * (F_SMALL + 10)
+                draw.text((PAD, ry), date_label, fill=BLACK, font=ff)
+                draw.text((PAD + 205, ry), clip(draw, condition, ff, 360), fill=GRAY, font=ff)
+                draw.text((SCREEN_W - PAD - tw(draw, temps, ff), ry), temps, fill=BLACK, font=ff)
+            bottom = row_y + len(days) * (F_SMALL + 10)
+        return bottom
     else:
         draw.text((PAD, y), tr('天气不可用'), fill=GRAY, font=f(F_SMALL))
         return y + F_SMALL + 8
