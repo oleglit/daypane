@@ -543,6 +543,45 @@ def draw_ai(draw, d, y):
             draw.rounded_rectangle([bx, by, bx + fw, by + bar_h], radius=r, fill=BLACK)
     return y + len(rows) * (F_BODY + bar_h + gap)
 
+def draw_weather_icon(draw, x, y, code, size=34):
+    """Компактные монохромные пиктограммы: Kindle-friendly, без emoji."""
+    code = int(code) if isinstance(code, (int, float)) else -1
+    sun = code in (0, 1, 2)
+    cloud = code in (2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99)
+    snow = code in (71, 73, 75, 77, 85, 86)
+    rain = code in (51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99)
+    thunder = code in (95, 96, 99)
+    fog = code in (45, 48)
+    cx, cy = x + size // 2, y + size // 2
+    if sun:
+        r = 7
+        draw.ellipse((cx-r, cy-r-3, cx+r, cy+r-3), outline=BLACK, width=2)
+        for dx, dy in ((0,-15),(0,15),(-15,0),(15,0),(-11,-11),(11,-11),(-11,11),(11,11)):
+            draw.line((cx+dx//2, cy-3+dy//2, cx+dx, cy-3+dy), fill=BLACK, width=2)
+    if cloud:
+        # Three overlapping circles plus a baseline form a clear cloud silhouette.
+        base_y = y + 24
+        draw.arc((x+5, y+11, x+23, y+29), 180, 350, fill=BLACK, width=2)
+        draw.arc((x+13, y+3, x+31, y+27), 190, 350, fill=BLACK, width=2)
+        draw.arc((x+22, y+12, x+39, y+29), 190, 350, fill=BLACK, width=2)
+        draw.line((x+10, base_y, x+34, base_y), fill=BLACK, width=2)
+    if fog:
+        for yy in (y+13, y+21, y+29):
+            draw.line((x+4, yy, x+36, yy), fill=BLACK, width=2)
+    elif thunder:
+        draw.line((cx+1, y+23, cx-5, y+33, cx+1, y+33, cx-3, y+40), fill=BLACK, width=3)
+    elif rain:
+        for dx in (13, 23, 33):
+            draw.line((x+dx, y+29, x+dx-4, y+37), fill=BLACK, width=2)
+    elif snow:
+        for dx in (13, 25, 35):
+            draw.line((x+dx-3, y+32, x+dx+3, y+38), fill=BLACK, width=2)
+            draw.line((x+dx+3, y+32, x+dx-3, y+38), fill=BLACK, width=2)
+    if code not in range(0, 100):
+        draw.ellipse((x+12, y+12, x+28, y+28), outline=BLACK, width=2)
+        draw.text((x+17, y+10), "?", fill=BLACK, font=f(F_SMALL))
+
+
 def draw_weather(draw, d, y):
     w = d.get('weather', {})
     y = draw_title(draw, y, tr('天气'), w)
@@ -552,8 +591,7 @@ def draw_weather(draw, d, y):
         draw.text((PAD, y), t1, fill=BLACK, font=ft)
         tw1 = tw(draw, t1, ft)
         det = ('%s  H%s L%s  RH%s%%' if LANG == 'en' else ('%s  макс. %s° мин. %s°  влажн. %s%%' if LANG == 'ru' else '%s  高%s 低%s  湿%s%%')) % (w.get('text', ''), fnum(w.get('high')), fnum(w.get('low')), w.get('humidity', '?'))
-        draw.text((PAD + tw1 + 24, y + 14), det, fill=GRAY, font=f(F_SMALL))
-        # Add the next three days directly to the main Kindle screen (today is excluded).
+        draw.text((PAD + tw1 + 24, y + 14), clip(draw, det, f(F_SMALL), CONTENT_W - tw1 - 24), fill=GRAY, font=f(F_SMALL))
         bottom = draw.textbbox((PAD, y), t1, font=ft)[3] + 8
         days = (w.get('days') or [])[1:4]
         if days:
@@ -564,7 +602,8 @@ def draw_weather(draw, d, y):
                 try:
                     parts = [int(x) for x in raw.split('-') if x.isdigit()]
                     month, dom = parts[-2], parts[-1]
-                    weekday = 'ПнВтСрЧтПтСбВс'[_date_weekday(today_year(), month, dom) * 2:_date_weekday(today_year(), month, dom) * 2 + 2] if LANG == 'ru' else WEEKDAY_EN[_date_weekday(today_year(), month, dom)]
+                    weekday_index = _date_weekday(today_year(), month, dom)
+                    weekday = 'ПнВтСрЧтПтСбВс'[weekday_index*2:weekday_index*2+2] if LANG == 'ru' else WEEKDAY_EN[weekday_index]
                     date_label = '%02d.%02d %s' % (dom, month, weekday) if LANG == 'ru' else '%s %d' % (weekday, dom)
                 except (ValueError, IndexError):
                     date_label = raw or '—'
@@ -572,7 +611,8 @@ def draw_weather(draw, d, y):
                 temps = '%s° / %s°' % (fnum(day.get('high')), fnum(day.get('low')))
                 ry = row_y + i * (F_SMALL + 10)
                 draw.text((PAD, ry), date_label, fill=BLACK, font=ff)
-                draw.text((PAD + 205, ry), clip(draw, condition, ff, 360), fill=GRAY, font=ff)
+                draw_weather_icon(draw, PAD + 190, ry - 3, day.get('code'))
+                draw.text((PAD + 245, ry), clip(draw, condition, ff, 350), fill=GRAY, font=ff)
                 draw.text((SCREEN_W - PAD - tw(draw, temps, ff), ry), temps, fill=BLACK, font=ff)
             bottom = row_y + len(days) * (F_SMALL + 10)
         return bottom
