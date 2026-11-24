@@ -25,12 +25,33 @@ export async function getWeather() {
     `&current=temperature_2m,weather_code,relative_humidity_2m` +
     `&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset` +
     `&timezone=auto&forecast_days=4`;
+  const timezone = getConfig().display?.timezone || 'Europe/Riga';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date());
+  const datePart = (type) => parts.find((p) => p.type === type)?.value;
+  const localDate = `${datePart('year')}-${datePart('month')}-${datePart('day')}`;
+  const offsetPart = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone, timeZoneName: 'longOffset'
+  }).formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value || 'GMT+00:00';
+  const offset = offsetPart.replace('GMT', '') || '+00:00';
+  const moonUrl = `https://api.met.no/weatherapi/sunrise/3.0/moon?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&date=${localDate}&offset=${encodeURIComponent(offset)}`;
 
   // 配置可在服务运行中热改。key 里必须带上坐标和城市名，否则改了城市之后的
   // 10 分钟里，画面会显示"新城市 + 老城市的温度"，还带着旧的 fetchedAt。
   return cached('weather:' + city + ':' + lat + ',' + lon, 10 * 60 * 1000, async () => {
-    const r = await fetchJson(url);
+    const [r, moonResponse] = await Promise.all([
+      fetchJson(url),
+      cached('moon:' + city + ':' + lat + ',' + lon + ':' + localDate, 30 * 60 * 1000,
+        () => fetchJson(moonUrl, { headers: { 'User-Agent': 'DayPane/1.0 https://github.com/oleglit/daypane' } }))
+    ]);
     if (!r.ok) return { ok: false, error: r.error, city };
+    const moonProps = moonResponse?.ok ? (moonResponse.data?.properties || {}) : {};
+    const eventTime = (event) => {
+      const value = event?.time;
+      return typeof value === 'string' && /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}/.test(value)
+        ? value.slice(11, 16) : null;
+    };
     const c = r.data.current || {};
     const d = (r.data.daily || {});
     const num = (v) => {
@@ -69,6 +90,9 @@ export async function getWeather() {
       low: num(d.temperature_2m_min?.[0]),
       sunrise: days[0]?.sunrise ?? null,
       sunset: days[0]?.sunset ?? null,
+      moonrise: eventTime(moonProps.moonrise),
+      moonset: eventTime(moonProps.moonset),
+      moonPhase: Number.isFinite(Number(moonProps.moonphase?.value)) ? Number(moonProps.moonphase.value) : null,
       days,
       source: 'open-meteo'
     };
