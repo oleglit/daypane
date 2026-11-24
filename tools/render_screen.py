@@ -297,8 +297,7 @@ def clip_sentence(draw, s, font, max_w):
     s = ' '.join((s or '').split())
     if not s:
         return s
-    if tw(draw, s, font) <= max_w:        return s
-    parts = [p for p in _SENT_SPLIT.split(s) if p]
+    if tw(draw, s, font) <= max_w:        return s    parts = [p for p in _SENT_SPLIT.split(s) if p]
     out = ''
     idx = 0
     for i, p in enumerate(parts):
@@ -596,9 +595,9 @@ def draw_ai(draw, d, y):
     for i, (name, val, pct) in enumerate(rows):
         ry = y + i * (F_BODY + bar_h + gap)
         draw.text((PAD, ry), name, fill=BLACK, font=ff)
-        right = SCREEN_W - PAD if pct is None else SCREEN_W - PAD - bar_w - 20        draw.text((right - tw(draw, val, fs), ry + 4), val, fill=GRAY, font=fs)
-        if pct is None:
-            continue
+        right = SCREEN_W - PAD if pct is None else SCREEN_W - PAD - bar_w - 20
+        draw.text((right - tw(draw, val, fs), ry + 4), val, fill=GRAY, font=fs)
+        if pct is None:            continue
         bx = SCREEN_W - PAD - bar_w
         by = ry + 6
         r = bar_h // 2
@@ -897,8 +896,7 @@ def draw_slow_calendar(draw, d, y):
     if holiday:
         zh, en, _, days = holiday        if LANG == 'en':
             line = '%s in %dd' % (en, days) if days else '%s is today' % en
-        else:
-            line = '距%s %d 天' % (zh, days) if days else '今天是%s' % zh
+        else:            line = '距%s %d 天' % (zh, days) if days else '今天是%s' % zh
         draw.text((PAD, y), line, fill=GRAY, font=fs)
     return y + F_BODY + 6
 
