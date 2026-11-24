@@ -589,7 +589,7 @@ def draw_weather(draw, d, y):
         bottom = draw.textbbox((PAD, y), t1, font=ft)[3] + 8
         days = (w.get('days') or [])[1:4]
         if days:
-            ff = f(F_SMALL * 2, bold=True)
+            ff = f(round(F_SMALL * 1.4), bold=True)  # уменьшено на 30%
             row_y = bottom + 16
             for i, day in enumerate(days):
                 raw = str(day.get('date') or '')
@@ -603,12 +603,12 @@ def draw_weather(draw, d, y):
                     date_label = raw or '—'
                 condition = day.get('text') or '—'
                 temps = '%s° / %s°' % (fnum(day.get('high')), fnum(day.get('low')))
-                ry = row_y + i * (F_SMALL * 2 + 18)
+                ry = row_y + i * 62  # компактнее после уменьшения прогноза
                 draw.text((PAD, ry), date_label, fill=BLACK, font=ff)
                 icon_x, icon_y = PAD + 205, ry - 12
                 icon_base = Image.new('L', (48, 48), WHITE)
                 draw_weather_icon(ImageDraw.Draw(icon_base), 0, 0, day.get('code'), size=44)
-                icon_large = icon_base.resize((88, 88), Image.Resampling.NEAREST)
+                icon_large = icon_base.resize((62, 62), Image.Resampling.NEAREST)
                 draw._image.paste(icon_large, (icon_x, icon_y))
                 draw.text((PAD + 315, ry), clip(draw, condition, ff, 330), fill=GRAY, font=ff)
                 draw.text((SCREEN_W - PAD - tw(draw, temps, ff), ry), temps, fill=BLACK, font=ff)
