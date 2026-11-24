@@ -381,8 +381,8 @@ def draw_header(draw, d, y):
     date_x = (SCREEN_W - tw(draw, date_label, fd)) // 2
     weekday_x = (SCREEN_W - tw(draw, weekday_label, fw)) // 2
     draw.text((date_x, y), date_label, fill=BLACK, font=fd)
-    draw.text((weekday_x, y + F_DATE + 8), weekday_label, fill=GRAY, font=fw)
-    return y + round(158 * (LAYOUT["fontScale"] if LAYOUT else 1))
+    draw.text((weekday_x, y + F_DATE + F_BODY + 20), weekday_label, fill=GRAY, font=fw)
+    return y + round(190 * (LAYOUT["fontScale"] if LAYOUT else 1))
 
 def stamp_label(src):
     """把模块数据里的 fetchedAt 变成右上角的时间标注。
