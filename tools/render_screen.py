@@ -21,7 +21,7 @@ def display_now():
 from PIL import Image, ImageDraw, ImageFont
 
 # Language defaults to Chinese for backward-compatible personal deployments.
-LANG = 'zh'
+LANG = 'ru'
 LABELS = {
     '今日新闻 · AI': 'AI News', '新闻源暂不可用': 'News unavailable',
     'AI 用量': 'AI Usage', 'AI 用量 · 电脑离线': 'AI Usage · PC offline',
@@ -81,7 +81,24 @@ WEATHER_EN = {0:'Clear',1:'Mostly clear',2:'Partly cloudy',3:'Overcast',45:'Fog'
     85:'Snow showers',86:'Snow showers',95:'Thunderstorm',96:'Hailstorm',99:'Hailstorm'}
 
 def tr(text):
-    return LABELS.get(text, text) if LANG == 'en' else text
+    if LANG == 'en':
+        return LABELS.get(text, text)
+    if LANG == 'ru':
+        return {
+            '今日新闻 · AI': 'Новости Украины',
+            '新闻源暂不可用': 'Новостные источники недоступны',
+            '天气': 'Погода',
+            '天气不可用': 'Погода недоступна',
+            '世界时钟': 'Мировое время',
+            '时钟不可用': 'Время недоступно',
+            '慢信息': 'Календарь и природа',
+            '日光': 'Световой день',
+            '往后几天': 'Прогноз на 3 дня',
+            '日出日落暂不可用': 'Нет данных о восходе и закате',
+            '未来天气暂不可用': 'Нет прогноза',
+            '左右滑换页': 'Листайте экран',
+        }.get(text, text)
+    return text
 
 def localized_data(data):
     """Translate built-in labels without mutating the Chinese payload."""
@@ -339,8 +356,13 @@ def load_quotes():
 def draw_header(draw, d, y):
     now = display_now()
     day = now.strftime('%d')
-    wd = '一二三四五六日'[now.weekday()]
-    mw = (['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.month-1] + ' ' + ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][now.weekday()]) if LANG == 'en' else '%d月 周%s' % (now.month, wd)
+    wd = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][now.weekday()] if LANG == 'ru' else '一二三四五六日'[now.weekday()]
+    if LANG == 'en':
+        mw = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.month-1] + ' ' + ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][now.weekday()]
+    elif LANG == 'ru':
+        mw = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'][now.month-1] + ', ' + ['понедельник','вторник','среда','четверг','пятница','суббота','воскресенье'][now.weekday()]
+    else:
+        mw = '%d月 周%s' % (now.month, wd)
     ts = now.strftime('%H:%M')
     city = (d.get('weather') or {}).get('city') or ''
     fd = f(F_DATE, bold=True)
@@ -485,7 +507,7 @@ def draw_weather(draw, d, y):
         ft = f(F_BIG, bold=True)
         draw.text((PAD, y), t1, fill=BLACK, font=ft)
         tw1 = tw(draw, t1, ft)
-        det = ('%s  H%s L%s  RH%s%%' if LANG == 'en' else '%s  高%s 低%s  湿%s%%') % (w.get('text', ''), fnum(w.get('high')), fnum(w.get('low')), w.get('humidity', '?'))
+        det = ('%s  H%s L%s  RH%s%%' if LANG == 'en' else ('%s  макс. %s° мин. %s°  влажн. %s%%' if LANG == 'ru' else '%s  高%s 低%s  湿%s%%')) % (w.get('text', ''), fnum(w.get('high')), fnum(w.get('low')), w.get('humidity', '?'))
         draw.text((PAD + tw1 + 24, y + 14), det, fill=GRAY, font=f(F_SMALL))
         # 温度大字用 56px 字体，实际字形高度超过 F_BIG，固定 y+F_BIG 会让字形底部压过分隔线
         return draw.textbbox((PAD, y), t1, font=ft)[3] + 8
@@ -802,9 +824,11 @@ def draw_footer(draw, d, y, offline=False, last_ok=None, page=1, pages=1):
         tail = ('Page %d/%d · %s' % (page, pages, tr('左右滑换页'))) if LANG == 'en' \
             else ('第 %d/%d 页 · %s' % (page, pages, tr('左右滑换页')))
     else:
-        tail = 'Swipe from top to exit' if LANG == 'en' else '顶部下滑返回'
+        tail = 'Swipe from top to exit' if LANG == 'en' else ('Смахните сверху для выхода' if LANG == 'ru' else '顶部下滑返回')
     if LANG == 'en':
         head = ('DayPane · Offline · Last %s' % (last_ok or '?')) if offline else ('DayPane · Updated %s' % now)
+    elif LANG == 'ru':
+        head = ('DayPane · офлайн · последнее обновление %s' % (last_ok or '?')) if offline else ('DayPane · обновлено %s' % now)
     else:
         head = ('DayPane · 离线 · 最后 %s' % (last_ok or '?')) if offline else ('DayPane · 更新 %s' % now)
     txt = head + ' · ' + tail
@@ -900,7 +924,7 @@ def render(d, out_path=None, language="zh", page=1, pages=1):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--lang', choices=['en', 'zh'], default='zh')
+    ap.add_argument('--lang', choices=['en', 'zh', 'ru'], default='ru')
     ap.add_argument('--out')
     ap.add_argument('--data')
     ap.add_argument('--url', default='http://127.0.0.1:8787/api/dashboard')
