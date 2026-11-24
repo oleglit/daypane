@@ -585,14 +585,17 @@ def draw_fx(draw, d, y):
         draw.text((PAD, y), 'Курсы валют временно недоступны', fill=GRAY, font=f(F_SMALL))
         return y + F_SMALL
     base = fx.get('base') or 'EUR'
-    rows = [('USD', fx.get('usd')), ('UAH', fx.get('uah')), ('GBP', fx.get('gbp'))]
+    rows = [('USD', fx.get('usd')), ('UAH', fx.get('uah'))]
     ff = f(F_BODY)
     for i, (code, value) in enumerate(rows):
         label = '1 %s = ' % base
         rate = ('%.4f' % value).rstrip('0').rstrip('.') if isinstance(value, (int, float)) else '—'
         line = label + rate + ' ' + code
         draw.text((PAD, y + i * (F_BODY + 6)), line, fill=BLACK, font=ff)
-    return y + len(rows) * (F_BODY + 6)
+    cross = fx.get('usdUah')
+    rate = ('%.4f' % cross).rstrip('0').rstrip('.') if isinstance(cross, (int, float)) else '—'
+    draw.text((PAD, y + len(rows) * (F_BODY + 6)), '1 USD = ' + rate + ' UAH', fill=BLACK, font=ff)
+    return y + (len(rows) + 1) * (F_BODY + 6)
 
 
 def draw_clocks(draw, d, y):
