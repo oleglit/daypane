@@ -266,6 +266,7 @@ print('PASS: Russian dashboard default, legacy URL migration, custom URLs and lo
 ''')
 ))
 d.cloud=d:loadCloud()
+d.host='example.test:8787'
 assert(d:endpoints()[1].url:match('/api/screen') and d:endpoints()[1].url:match('lang=ru&page=1$'))
 local ru_cache=d:cacheImg()
 d.language='en'
