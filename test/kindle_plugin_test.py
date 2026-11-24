@@ -37,6 +37,7 @@ function UI:unschedule(fn) queue[fn] = nil end
 function UI:show() end
 function UI:close() end
 function UI:suspend() end
+function UI:setDirty(widget, mode, region) self.last_dirty={widget=widget,mode=mode,region=region} end
 
 PS = {}
 POWER = {resets=0}
@@ -104,8 +105,21 @@ package.preload['logger'] = function() return {info=function() end,warn=function
 package.preload['ui/uimanager'] = function() return UI end
 for _, name in ipairs({'ui/widget/container/widgetcontainer','ui/widget/infomessage',
 'ui/widget/inputdialog','ui/widget/container/inputcontainer','ui/widget/imagewidget',
-'ui/geometry','ui/gesturerange','luasettings','libs/libkoreader-lfs'}) do
+'ui/widget/overlapgroup','ui/widget/container/framecontainer','ui/geometry','ui/gesturerange','luasettings','libs/libkoreader-lfs'}) do
     package.preload[name]=function() return base end
+end
+package.preload['ui/widget/textwidget'] = function()
+    local T = {}
+    function T:new(o) return setmetatable(o or {}, {__index=self}) end
+    function T:setText(text) self.text = tostring(text) end
+    function T:getSize() return {w=500,h=30} end
+    return T
+end
+package.preload['ui/font'] = function()
+    return {getFace=function(_, name, size) return {name=name,size=size} end}
+end
+package.preload['ffi/blitbuffer'] = function()
+    return {COLOR_BLACK=0, COLOR_WHITE=255}
 end
 ''')
 
