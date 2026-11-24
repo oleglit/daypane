@@ -93,7 +93,9 @@ def main():
 
     def generate(language="ru"):
         subprocess.run([sys.executable, 'tools/render_screen.py', '--check-fonts'], check=True, timeout=20)
-        if language == 'zh':
+        # Collect public data once, then render each language from the same snapshot.
+        # The primary cloud dashboard is Russian; do not gate collection on Chinese output.
+        if not (work / 'dashboard.json').exists():
             with (work / 'dashboard.json').open('wb') as f:
                 subprocess.run(['node', 'tools/dump_dashboard.js'], stdout=f, check=True, timeout=120)
         data = json.loads((work / 'dashboard.json').read_text())
