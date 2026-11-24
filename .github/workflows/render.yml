@@ -11,7 +11,7 @@ on:
         required: false
         type: string
   push:
-    branches: [main]
+    branches: [main, russian-dashboard]
     paths:
       - '.github/workflows/render.yml'
       - 'tools/build_site.py'
