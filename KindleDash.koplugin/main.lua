@@ -58,7 +58,7 @@ local MAX_IMAGE = 4 * 1024 * 1024
 local DEFAULT_HOST = ""
 local DEFAULT_PORT = "8787"
 -- 云端静态图完整 URL（GitHub Pages），留空则只用局域网
-local DEFAULT_CLOUD = "https://shenliucn-prog.github.io/daypane/screen.png"
+local DEFAULT_CLOUD = "https://oleglit.github.io/daypane/screen.png"
 local CACHE_IMG_NAME = "kindledash_screen.png"
 local CACHE_TS_NAME  = "kindledash_ts.txt"
 
