@@ -371,16 +371,18 @@ def draw_header(draw, d, y):
     if LANG == 'ru':
         months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря']
         weekdays = ['понедельник','вторник','среда','четверг','пятница','суббота','воскресенье']
-        date_label = f"{now.day} {months[now.month - 1]} {now.year}, {weekdays[now.weekday()]}"
+        date_label = f"{now.day} {months[now.month - 1]} {now.year}"
+        weekday_label = weekdays[now.weekday()]
     else:
-        date_label = now.strftime('%d.%m.%Y, %A')
-    city = (d.get('weather') or {}).get('city') or ''
+        date_label = now.strftime('%d.%m.%Y')
+        weekday_label = now.strftime('%A')
     fd = f(F_DATE, bold=True)
-    draw.text((PAD, y), date_label, fill=BLACK, font=fd)
-    if city:
-        fs = f(F_SMALL)
-        draw.text((SCREEN_W - PAD - tw(draw, city, fs), y + 28), city, fill=GRAY, font=fs)
-    return y + round(112 * (LAYOUT["fontScale"] if LAYOUT else 1))
+    fw = f(F_BODY, bold=True)
+    date_x = (SCREEN_W - tw(draw, date_label, fd)) // 2
+    weekday_x = (SCREEN_W - tw(draw, weekday_label, fw)) // 2
+    draw.text((date_x, y), date_label, fill=BLACK, font=fd)
+    draw.text((weekday_x, y + F_DATE + 8), weekday_label, fill=GRAY, font=fw)
+    return y + round(158 * (LAYOUT["fontScale"] if LAYOUT else 1))
 
 def stamp_label(src):
     """把模块数据里的 fetchedAt 变成右上角的时间标注。
