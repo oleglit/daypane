@@ -91,7 +91,7 @@ def main():
     work = output.parent / 'render-work'
     work.mkdir(exist_ok=True)
 
-    def generate(language="zh"):
+    def generate(language="ru"):
         subprocess.run([sys.executable, 'tools/render_screen.py', '--check-fonts'], check=True, timeout=20)
         if language == 'zh':
             with (work / 'dashboard.json').open('wb') as f:
