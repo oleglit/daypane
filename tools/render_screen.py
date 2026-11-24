@@ -450,10 +450,8 @@ def draw_month_calendar(draw, d, y):
                 draw.text((x + (colw - tw(draw, label, font)) // 2, top + 3), label, fill=color, font=font)
     y += len(weeks) * cell_h + 16
 
-    # Природная строка под календарём: восход, закат и фаза Луны.
+    # Природная строка: восход/закат Солнца, восход/заход Луны и фаза.
     weather = d.get('weather') or {}
-    sunrise = weather.get('sunrise') or '—'
-    sunset = weather.get('sunset') or '—'
     phase_names = {
         '新月': 'Новолуние', '蛾眉月': 'Молодая Луна',
         '上弦月': 'Первая четверть', '盈凸月': 'Растущая Луна',
@@ -462,65 +460,66 @@ def draw_month_calendar(draw, d, y):
     }
     (phase_zh, _), moon_age = slowinfo.moon_phase(now.date(), (LAYOUT or {}).get('timezone') or 'Europe/Riga')
     phase_label = phase_names.get(phase_zh, 'Фаза Луны')
-
-    # Тонкий разделитель отделяет календарную сетку от природной информации.
-    hline(draw, y, GRAY, 1)
-    y += 18
-    icon_y = y + 2
-    icon_color = BLACK
+    hline_y = y + 5
+    draw.line([(PAD, hline_y), (SCREEN_W - PAD, hline_y)], fill=GRAY, width=1)
+    y = hline_y + 18
 
     def sun_icon(cx, cy):
-        r = 10
-        draw.ellipse([cx-r, cy-r, cx+r, cy+r], outline=icon_color, width=3)
+        r = 9
+        draw.ellipse([cx-r, cy-r, cx+r, cy+r], outline=BLACK, width=3)
         for angle in range(0, 360, 45):
             a = math.radians(angle)
-            x1, yy1 = cx + math.cos(a)*15, cy + math.sin(a)*15
-            x2, yy2 = cx + math.cos(a)*21, cy + math.sin(a)*21
-            draw.line([(int(x1), int(yy1)), (int(x2), int(yy2))], fill=icon_color, width=3)
-        draw.line([(cx-22, cy+17), (cx+22, cy+17)], fill=icon_color, width=3)
+            x1, yy1 = cx + math.cos(a)*14, cy + math.sin(a)*14
+            x2, yy2 = cx + math.cos(a)*20, cy + math.sin(a)*20
+            draw.line([(int(x1), int(yy1)), (int(x2), int(yy2))], fill=BLACK, width=3)
 
     def moon_icon(cx, cy, age):
-        # Рисуем лунный диск и светлую часть без emoji-шрифта — надёжно для Kindle.
         period = 29.530588853
         illumination = (1 - math.cos(2 * math.pi * age / period)) / 2
         waxing = age < period / 2
-        r = 18
+        r = 16
         draw.ellipse([cx-r, cy-r, cx+r, cy+r], fill=BLACK)
         if illumination < 0.04:
             draw.ellipse([cx-r, cy-r, cx+r, cy+r], outline=BLACK, width=2)
-            return
-        if illumination > 0.96:
-            draw.ellipse([cx-r, cy-r, cx+r, cy+r], fill=BLACK)
-            return
-        if abs(illumination - 0.5) < 0.09:
+        elif illumination > 0.96:
+            draw.ellipse([cx-r, cy-r, cx+r, cy+r], fill=WHITE, outline=BLACK, width=2)
+        elif abs(illumination - 0.5) < 0.09:
             if waxing:
                 draw.rectangle([cx, cy-r, cx+r, cy+r], fill=WHITE)
             else:
                 draw.rectangle([cx-r, cy-r, cx, cy+r], fill=WHITE)
             draw.ellipse([cx-r, cy-r, cx+r, cy+r], outline=BLACK, width=2)
-            return
-        offset = int((1 - 2 * illumination) * r) if waxing else int((2 * illumination - 1) * r)
-        draw.ellipse([cx-r+offset, cy-r, cx+r+offset, cy+r], fill=WHITE)
-        draw.ellipse([cx-r, cy-r, cx+r, cy+r], outline=BLACK, width=2)
+        else:
+            offset = int((1 - 2 * illumination) * r) if waxing else int((2 * illumination - 1) * r)
+            draw.ellipse([cx-r+offset, cy-r, cx+r+offset, cy+r], fill=WHITE)
+            draw.ellipse([cx-r, cy-r, cx+r, cy+r], outline=BLACK, width=2)
 
-    # Три равные зоны: восход | закат | лунная фаза.
-    zone_w = CONTENT_W // 3
-    sun_icon(PAD + 24, icon_y + 20)
-    draw.text((PAD + 56, y + 2), 'Восход', fill=GRAY, font=f(F_SMALL))
-    draw.text((PAD + 56, y + 31), sunrise, fill=BLACK, font=f(F_BODY, bold=True))
+    # Пять компактных колонок — все времена местные, по Риге.
+    values = [
+        ('Восход', weather.get('sunrise') or '—', 'sun'),
+        ('Закат', weather.get('sunset') or '—', 'sun'),
+        ('Восход Луны', weather.get('moonrise') or '—', 'moon'),
+        ('Заход Луны', weather.get('moonset') or '—', 'moon'),
+        ('Фаза Луны', phase_label, 'phase'),
+    ]
+    zone_w = CONTENT_W / 5
+    label_font = f(max(F_SMALL - 2, 16))
+    value_font = f(F_SMALL, bold=True)
+    for i, (label, value, kind) in enumerate(values):
+        cx = int(PAD + zone_w * i + zone_w / 2)
+        if kind == 'sun':
+            sun_icon(cx, y + 18)
+        elif kind == 'moon':
+            moon_icon(cx, y + 18, moon_age)
+        else:
+            moon_icon(cx, y + 18, moon_age)
+        lw = tw(draw, label, label_font)
+        draw.text((int(cx - lw/2), y + 43), label, fill=GRAY, font=label_font)
+        shown = clip(draw, value, value_font, int(zone_w - 8))
+        vw = tw(draw, shown, value_font)
+        draw.text((int(cx - vw/2), y + 65), shown, fill=BLACK, font=value_font)
 
-    x2 = PAD + zone_w
-    sun_icon(x2 + 24, icon_y + 20)
-    draw.text((x2 + 56, y + 2), 'Закат', fill=GRAY, font=f(F_SMALL))
-    draw.text((x2 + 56, y + 31), sunset, fill=BLACK, font=f(F_BODY, bold=True))
-
-    x3 = PAD + 2 * zone_w
-    moon_icon(x3 + 22, icon_y + 20, moon_age)
-    phase_font = f(F_SMALL, bold=True)
-    draw.text((x3 + 52, y + 2), 'Луна', fill=GRAY, font=f(F_SMALL))
-    draw.text((x3 + 52, y + 31), clip(draw, phase_label, phase_font, SCREEN_W - PAD - (x3 + 52)), fill=BLACK, font=phase_font)
-
-    return y + F_BODY + 48
+    return y + 65 + F_SMALL + 10
 
 def draw_news(draw, d, y):
     """今日新闻 · AI：中文一句话，按自然标点断句，绝不超页宽"""
