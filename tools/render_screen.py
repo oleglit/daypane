@@ -650,7 +650,7 @@ def draw_fx(draw, d, y):
         draw.text((PAD, y), 'Курсы валют временно недоступны', fill=GRAY, font=f(F_SMALL))
         return y + F_SMALL
     base = fx.get('base') or 'EUR'
-    rows = [(' $ USD', fx.get('usd')), (' ₴ UAH', fx.get('uah'))]
+    rows = [('USD', fx.get('usd')), ('UAH', fx.get('uah'))]
     ff = f(F_BODY)
     for i, (code, value) in enumerate(rows):
         base_symbol = '€' if base == 'EUR' else ('
