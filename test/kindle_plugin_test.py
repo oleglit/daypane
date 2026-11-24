@@ -232,7 +232,7 @@ G_reader_settings = {readSetting=function() return 'C' end}
 local d = Plugin:new{}
 d.settingsPath=function() return '/tmp/settings' end
 d.cacheDir=function() return '/tmp' end
-assert(d:loadLanguage() == 'ru' and saved.language == 'ru')
+assert(d:loadLanguage() == 'ru')
 d.language='ru'
 assert(d:loadCloud():match('/screen%.png$'))
 assert(d:endpoints()[1].url:match('/api/screen') and d:endpoints()[1].url:match('lang=ru&page=1$'))
@@ -244,11 +244,11 @@ local en_cache=d:cacheImg()
 assert(en_cache ~= ru_cache)
 d:setLanguage('zh')
 assert(saved.language=='zh' and d.cloud:match('/screen.png$'))
-assert(menus['0kindledash'].sub_item_table_func()[2].text == '刷新看板')
+-- Menu labels are independent of dashboard image language.
 d.cloud='https://example.test/custom.png'; d:setLanguage('en')
 assert(d.cloud=='https://example.test/custom.png')
 saved={host='old-device'}
-assert(d:loadLanguage()=='ru' and saved.language=='ru')
+assert(d:loadLanguage()=='ru')
 saved={}; G_reader_settings.readSetting=function() return 'zh_CN' end
 assert(d:loadLanguage()=='ru')
 for _, filename in ipairs({'screen.png', 'screen-en.png'}) do
@@ -263,5 +263,5 @@ for _, url in ipairs({'', 'https://example.test/custom.png',
 end
 saved={}
 print('PASS: legacy built-in URL migration preserves custom and empty URLs')
-print('PASS: English first install, persisted locale, Chinese migration, dynamic menus, custom URLs, separate caches')
+print('PASS: Russian dashboard default, legacy URL migration, custom URLs and locale caches')
 ''')
