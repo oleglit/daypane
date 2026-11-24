@@ -494,7 +494,7 @@ def draw_month_calendar(draw, d, y):
             draw.ellipse([cx-r+offset, cy-r, cx+r+offset, cy+r], fill=WHITE)
             draw.ellipse([cx-r, cy-r, cx+r, cy+r], outline=BLACK, width=2)
 
-    # Пять компактных колонок — все времена местные, по Риге.
+    # Пять компактных колонок: восход/закат Солнца и Луны; время местное, по Риге.
     values = [
         ('Восход', weather.get('sunrise') or '—', 'sun'),
         ('Закат', weather.get('sunset') or '—', 'sun'),
