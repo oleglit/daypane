@@ -1108,7 +1108,6 @@ function KindleDash:onSuspend()
 end
 
 function KindleDash:onResume()
-    self:armLiveClock()
     self._suspended = false
     self._busy = false
     self._generation = (self._generation or 0) + 1
@@ -1133,7 +1132,6 @@ function KindleDash:onResume()
 end
 
 function KindleDash:onCloseWidget()
-    self:stopLiveClock()
     self._generation = (self._generation or 0) + 1
     self:releaseNetwork()
     -- 只收定时器，不改 auto_on：这个回调不只退出时触发（插件从菜单注销等也会），
