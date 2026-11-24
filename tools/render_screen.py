@@ -577,6 +577,24 @@ def draw_market(draw, d, y):
             draw.text((x, ry), clip(draw, cell, ff, colw - 8), fill=BLACK, font=ff)
     return y + rows * (F_BODY + 6)
 
+def draw_fx(draw, d, y):
+    """Курсы валют относительно базовой валюты EUR."""
+    fx = d.get('fx') or {}
+    y = draw_title(draw, y, 'Курсы валют', fx)
+    if not fx.get('ok'):
+        draw.text((PAD, y), 'Курсы валют временно недоступны', fill=GRAY, font=f(F_SMALL))
+        return y + F_SMALL
+    base = fx.get('base') or 'EUR'
+    rows = [('USD', fx.get('usd')), ('UAH', fx.get('uah')), ('GBP', fx.get('gbp'))]
+    ff = f(F_BODY)
+    for i, (code, value) in enumerate(rows):
+        label = '1 %s = ' % base
+        rate = ('%.4f' % value).rstrip('0').rstrip('.') if isinstance(value, (int, float)) else '—'
+        line = label + rate + ' ' + code
+        draw.text((PAD, y + i * (F_BODY + 6)), line, fill=BLACK, font=ff)
+    return y + len(rows) * (F_BODY + 6)
+
+
 def draw_clocks(draw, d, y):
     """世界时钟（两列）"""
     y = draw_title(draw, y, tr('世界时钟'))
@@ -922,6 +940,7 @@ def render(d, out_path=None, language="zh", page=1, pages=1):
         'weather': lambda y: draw_weather(draw, d, y),
         'market': lambda y: draw_market(draw, d, y),
         'clocks': lambda y: draw_clocks(draw, d, y),
+        'fx': lambda y: draw_fx(draw, d, y),
         'calendar': lambda y: draw_month_calendar(draw, d, y),
         'mlb': lambda y: draw_mlb(draw, d, y),
         'quote': lambda y: draw_quote(draw, d, y, quotes),
