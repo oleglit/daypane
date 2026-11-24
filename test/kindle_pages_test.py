@@ -10,7 +10,7 @@ lua = harness.lua
 class PageTests(unittest.TestCase):
     def test_pages_caches_endpoints_and_gestures(self):
         lua.execute('''
-        local d = Plugin:new{language='zh', auto_on=false}
+        local d = Plugin:new{language='ru', auto_on=false}
         d.cacheDir = function() return '/tmp' end
         d.host = 'pc:8787'
         d.cloud = 'https://example.test/screen.png'
@@ -57,11 +57,11 @@ class PageTests(unittest.TestCase):
         -- 局域网 URL 带页码；云端 Pages 只有页 1，页 2/3 不能挂云图源。
         d.page = 1
         local e1 = d:endpoints()
-        assert(#e1 == 2 and e1[1].url:match('/api/screen%?lang=zh&page=1$'))
+        assert(#e1 == 2 and e1[1].url:match('/api/screen%?lang=ru&page=1$'))
         d.page = 2
         local e2 = d:endpoints()
         assert(#e2 == 1 and e2[1].url:match('page=2$'))
-        assert(d:manifestUrl(e2[1].url):match('/api/display%?lang=zh&page=2$'))
+        assert(d:manifestUrl(e2[1].url):match('/api/display%?lang=ru&page=2$'))
         d.page = 3
         assert(#d:endpoints() == 1)
 
