@@ -235,7 +235,7 @@ d.cacheDir=function() return '/tmp' end
 assert(d:loadLanguage() == 'ru')
 assert(saved.language == 'ru')
 d.language='ru'
-assert(d:loadCloud() == 'https://shenliucn-prog.github.io/daypane/screen.png')
+assert(d:loadCloud() == 'https://oleglit.github.io/daypane/screen.png')
 saved={host='old-device'}
 assert(d:loadLanguage()=='ru')
 saved={}; G_reader_settings.readSetting=function() return 'zh_CN' end
