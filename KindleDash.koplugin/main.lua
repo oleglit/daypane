@@ -698,8 +698,6 @@ function KindleDash:buildScreen(img_path, w, h)
         file_do_cache = false,
     }
     local container = InputContainer:new{ dimen = Geom:new{ w = w, h = h } }
-    self._clock_text = nil
-    self._clock_frame = nil
     container[1] = img
     -- 吃手势，防止 KOReader 的翻页/退出穿透到看板上。
     container.ges_events = {
@@ -738,9 +736,6 @@ function KindleDash:buildScreen(img_path, w, h)
         dash.dash_widget = nil
         dash._shown_path = nil
         dash._shown_offline = nil
-        dash:stopLiveClock()
-        dash._clock_text = nil
-        dash._clock_frame = nil
         -- 看板不在了：停止定时刷新，也不再阻止设备休眠。
         dash:holdScreen(false)
         dash:armAutoRefresh()
@@ -1156,8 +1151,6 @@ function KindleDash:init()
     self.page = self:currentPage()   -- 钳制旧设置里的越界值
     self.dash_widget = nil
     self._auto_timer = nil
-    self._clock_text = nil
-    self._clock_frame = nil
     self._resume_tick = nil
     self._rtc_task = nil
     self._deferred = nil
