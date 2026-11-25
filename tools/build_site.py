@@ -99,8 +99,12 @@ def main():
             with (work / 'dashboard.json').open('wb') as f:
                 subprocess.run(['node', 'tools/dump_dashboard.js'], stdout=f, check=True, timeout=120)
         data = json.loads((work / 'dashboard.json').read_text())
-        sections = {k: {'ok': bool(data.get(k, {}).get('ok')), 'fetchedAt': data.get(k, {}).get('fetchedAt')}
+        sections = {k: {'ok': bool(data.get(k, {}).get('ok')), 'fetchedAt': data.get(k, {}).get('fetchedAt'),
+                         'error': str(data.get(k, {}).get('error', ''))[:240] if not data.get(k, {}).get('ok') else ''}
                     for k in ('weather', 'stocks', 'fx', 'news', 'mlb')}
+        for name, section in sections.items():
+            if section['error']:
+                print('[data] %s unavailable: %s' % (name, section['error']), file=sys.stderr, flush=True)
         if not data.get('ok') or not any(v['ok'] for v in sections.values()):
             raise ValueError('all public data sources unavailable')
         subprocess.run([sys.executable, 'tools/render_screen.py', '--data', str(work / 'dashboard.json'),
