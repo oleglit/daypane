@@ -42,6 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: russian-dashboard
           persist-credentials: false
       - name: Read runtime input outside source branch
         uses: actions/checkout@v4
@@ -65,7 +66,7 @@ jobs:
           SHAWN_MODE: cloud
           SHAWN_QUOTAS_FILE: ${{ github.workspace }}/runtime-input/quotas.json
           DISPATCH_REQUESTED_AT: ${{ inputs.requested_at }}
-        run: python tools/build_site.py --previous-url https://shenliucn-prog.github.io/daypane --output _site
+        run: python tools/build_site.py --previous-url https://oleglit.github.io/daypane --output _site
       - uses: actions/upload-pages-artifact@v4
         with:
           path: _site
