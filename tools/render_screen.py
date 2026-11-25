@@ -1081,7 +1081,7 @@ def render(d, out_path=None, language="zh", page=1, pages=1):
 
     y = PAD
     y = draw_header(draw, d, y)
-    y += 10
+    y += 22  # больше воздуха между днём недели и разделительной линией
     thickline(draw, y, BLACK, 4)
     y += 16
 
