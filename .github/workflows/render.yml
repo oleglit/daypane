@@ -1,5 +1,5 @@
 name: Render Kindle Screen
-# Re-run screen generation after renderer syntax fix.
+# Render the Russian dashboard and publish immutable image manifests.
 
 on:
   # Backup only: external cron-job.org dispatch is the primary half-hour trigger.
