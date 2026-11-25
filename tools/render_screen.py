@@ -865,8 +865,8 @@ def draw_slow_calendar(draw, d, y):
         date_s = '%s %d, %s' % (MONTH_EN[today.month - 1], today.day, WEEKDAY_EN[today.weekday()])
         sub = '%d%% of the year' % progress
     else:
-        date_s = '%d月%d日 周%s' % (today.month, today.day, '一二三四五六日'[today.weekday()])
-        sub = '今年已过 %d%%' % progress
+        date_s = '%d %s · %s' % (today.day, ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'][today.month - 1], ['понедельник','вторник','среда','четверг','пятница','суббота','воскресенье'][today.weekday()])
+        sub = 'Год прошёл на %d%%' % progress
     draw.text((PAD, y), date_s, fill=BLACK, font=fbig)
     draw.text((SCREEN_W - PAD - tw(draw, sub, fs), y + 22), sub, fill=GRAY, font=fs)
     y += row + 12
@@ -876,7 +876,10 @@ def draw_slow_calendar(draw, d, y):
         if LANG == 'en':
             line = '%s · Next: %s in %dd' % (current[1] if current else '—', upcoming[1], upcoming[3])
         else:
-            line = '%s · 下一个节气 %s（%d 天后）' % (current[0] if current else '—', upcoming[0], upcoming[3])
+            term_ru = {'春分':'Весеннее равноденствие','清明':'Цинмин','谷雨':'Гуюй','立夏':'Начало лета','小满':'Сяомань','芒种':'Ман种','夏至':'Летнее солнцестояние','小暑':'Малая жара','大暑':'Большая жара','立秋':'Начало осени','处暑':'Конец жары','白露':'Белые росы','秋分':'Осеннее равноденствие','寒露':'Холодные росы','霜降':'Иней','立冬':'Начало зимы','小雪':'Малый снег','大雪':'Большой снег','冬至':'Зимнее солнцестояние','小寒':'Малый холод','大寒':'Большой холод','立春':'Начало весны','雨水':'Юйшуй','惊蛰':'Пробуждение насекомых'}
+        cur_ru = term_ru.get(current[0], 'Сезонный период') if current else '—'
+        next_ru = term_ru.get(upcoming[0], 'Следующий период')
+        line = '%s · Далее: %s через %d дн.' % (cur_ru, next_ru, upcoming[3])
     else:
         # term_at 对任何年份都能算出下一个节气，此分支正常不可达；
         # 万一走到，也别把节气行写成「天气暂不可用」（早期版本复制错标签）。
@@ -889,16 +892,20 @@ def draw_slow_calendar(draw, d, y):
         weekend_s = 'It is the weekend' if weekend == 0 else 'Saturday in %dd' % weekend
         line = '%s · %.0f days old · %s' % (moon_en, age, weekend_s)
     else:
-        weekend_s = '正在周末' if weekend == 0 else '距周六 %d 天' % weekend
-        line = '%s · 月龄 %.0f 天 · %s' % (moon_zh, age, weekend_s)
+        moon_ru = {'新月':'Новолуние','蛾眉月':'Молодая Луна','上弦月':'Первая четверть','盈凸月':'Растущая Луна','满月':'Полнолуние','亏凸月':'Убывающая Луна','下弦月':'Последняя четверть','残月':'Старая Луна'}.get(moon_zh, 'Фаза Луны')
+        weekend_s = 'Выходные' if weekend == 0 else 'До субботы %d дн.' % weekend
+        line = '%s · Лунный возраст %.0f дн. · %s' % (moon_ru, age, weekend_s)
     draw.text((PAD, y), clip(draw, line, ff, CONTENT_W), fill=GRAY, font=ff)
     y += row
 
     # 第四行：下一个公历固定日子
     if holiday:
-        zh, en, _, days = holiday        if LANG == 'en':
+        zh, en, _, days = holiday
+        if LANG == 'en':
             line = '%s in %dd' % (en, days) if days else '%s is today' % en
-        else:            line = '距%s %d 天' % (zh, days) if days else '今天是%s' % zh
+        else:
+            holiday_ru = {'元旦':'Новый год','劳动节':'День труда','国庆节':'Национальный день','圣诞节':'Рождество'}.get(zh, 'Праздник')
+            line = 'До праздника «%s» %d дн.' % (holiday_ru, days) if days else 'Сегодня: %s' % holiday_ru
         draw.text((PAD, y), line, fill=GRAY, font=fs)
     return y + F_BODY + 6
 
