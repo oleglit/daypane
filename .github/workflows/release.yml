@@ -18,7 +18,7 @@ jobs:
         if: startsWith(github.ref, 'refs/heads/')
         uses: actions/upload-artifact@v4
         with:
-          name: DayPane-Kindle-plugin-0.4.1
+          name: DayPane-Kindle-plugin-0.4.2
           path: |
             dist/*.zip
             dist/SHA256SUMS
