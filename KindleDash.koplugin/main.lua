@@ -568,7 +568,8 @@ end
 function KindleDash:manifestUrl(image)
     if image:match("%.json$") then return image end
     if image:match("/api/screen") then return image:gsub("/api/screen", "/api/display") end
-    if image:match("^https://shenliucn%-prog%.github%.io/daypane/") then
+    if image:match("^https://oleglit%.github%.io/daypane/")
+        or image:match("^https://shenliucn%-prog%.github%.io/daypane/") then
         if image:match("/screen%-en%.png$") then return image:gsub("screen%-en%.png$", "en/manifest.json") end
         return image:gsub("screen.png$", "manifest.json")
     end
