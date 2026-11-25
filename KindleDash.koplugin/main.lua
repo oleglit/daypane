@@ -51,7 +51,7 @@ local Blitbuffer = require("ffi/blitbuffer")
 -- 会连累 OPDS 下载、同步等其它功能的超时策略（见 request() 里的 save/restore）。
 local REQUEST_TIMEOUT = 8
 
-local VERSION = "0.4.0"
+local VERSION = "0.4.1"
 local PAGE_COUNT = 3
 local REFRESH_SEC = 30 * 60
 local MAX_IMAGE = 4 * 1024 * 1024
@@ -158,8 +158,42 @@ local EN = {
     ["AI 额度走局域网实时，关机显示最后值\n"] = "AI activity estimates may retain old values offline\n",
     ["顶部下滑/顶部点击返回看板退出"] = "Tap / swipe down from the top to exit",
 }
+local RU = {
+    ["未配置任何图源"] = "Не настроен источник изображения",
+    ["看板显示失败:\\n"] = "Не удалось показать дашборд:\\n",
+    ["看板失败:\\n"] = "Ошибка дашборда:\\n",
+    ["离线 · 最后 "] = "Офлайн · последнее обновление ",
+    ["离线 · 显示上次缓存"] = "Офлайн · показан сохранённый экран",
+    ["刷新失败: "] = "Ошибка обновления: ",
+    ["来自云端（电脑未连上）"] = "Загружено из облака (локальный сервер недоступен)",
+    ["自动刷新: 开 (整点/半点)"] = "Автообновление: включено (каждые 30 минут)",
+    ["自动刷新: 关"] = "Автообновление: выключено",
+    ["服务器地址 (IP:端口)"] = "Адрес локального сервера (IP:порт)",
+    ["例如 192.168.31.188:8787"] = "Например, 192.168.1.23:8787",
+    ["取消"] = "Отмена", ["保存"] = "Сохранить",
+    ["已保存: "] = "Сохранено: ",
+    ["云端图地址 (完整 URL)"] = "Адрес облачной картинки (полный URL)",
+    ["电脑关机时从这儿取图。留空则只用局域网。"] = "Загрузка отсюда, когда компьютер выключен. Пустое поле — только локальная сеть.",
+    ["已清空云端地址"] = "Адрес облака очищен",
+    ["刷新看板"] = "Обновить дашборд",
+    ["设置局域网服务器"] = "Настроить локальный сервер",
+    ["设置云端图地址"] = "Настроить адрес облачной картинки",
+    ["切换自动刷新 (整点/半点)"] = "Включить/выключить автообновление",
+    ["设备状态"] = "Состояние устройства",
+    ["刷新间隔"] = "Интервал обновления",
+    ["刷新间隔（分钟，5–1440）"] = "Интервал обновления (минуты, 5–1440)",
+    ["设置：图片或清单地址"] = "Настройка: адрес картинки или манифеста",
+    ["保存并测试"] = "Сохранить и проверить",
+    ["实验：单次 RTC 唤醒测试"] = "Тест однократного пробуждения RTC",
+    ["此设备不支持 RTC 唤醒接口。"] = "Это устройство не поддерживает пробуждение RTC.",
+    ["关于"] = "О плагине",
+    ["开"] = "ВКЛ", ["关"] = "ВЫКЛ",
+    ["顶部下滑/顶部点击返回看板退出"] = "Проведите вниз от верхнего края или нажмите сверху, чтобы выйти",
+}
 function KindleDash:tr(text)
-    return self.language == "en" and (EN[text] or text) or text
+    if self.language == "en" then return EN[text] or text end
+    if self.language == "ru" then return RU[text] or text end
+    return text
 end
 
 function KindleDash:setLanguage(language)
@@ -253,8 +287,32 @@ function KindleDash:setOption(key, value)
         local s = self:preferences(); s:saveSetting(key, value); s:flush()
     end)
 end
+local RU_LABELS = {
+    ["Device status"] = "Состояние устройства",
+    ["Screen: "] = "Экран: ",
+    ["RTC wake: "] = "Пробуждение RTC: ",
+    ["available"] = "доступно",
+    ["unavailable"] = "недоступно",
+    ["Hold awake: "] = "Не выключать экран: ",
+    ["Page: "] = "Страница: ",
+    ["Source: "] = "Источник: ",
+    ["Content generated: "] = "Сформировано: ",
+    ["Cloud state: "] = "Состояние облака: ",
+    ["Freshness: "] = "Актуальность: ",
+    ["Unknown"] = "Неизвестно",
+    ["Stale"] = "Устарело",
+    ["Within 45 minutes"] = "За последние 45 минут",
+    ["Age (min): "] = "Возраст данных (мин): ",
+    ["Downloaded: "] = "Загружено: ",
+    ["Last attempt: "] = "Последняя попытка: ",
+    ["Next attempt: "] = "Следующая попытка: ",
+    ["Last error: "] = "Последняя ошибка: ",
+    ["Health log: "] = "Журнал диагностики: ",
+}
 function KindleDash:label(en, zh)
-    return self.language == "en" and en or zh
+    if self.language == "en" then return en end
+    if self.language == "ru" then return RU_LABELS[en] or en end
+    return zh
 end
 
 function KindleDash:loadHost()
