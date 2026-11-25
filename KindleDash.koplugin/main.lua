@@ -58,7 +58,7 @@ local MAX_IMAGE = 4 * 1024 * 1024
 local DEFAULT_HOST = ""
 local DEFAULT_PORT = "8787"
 -- 云端静态图完整 URL（GitHub Pages），留空则只用局域网
-local DEFAULT_CLOUD = "https://oleglit.github.io/daypane/screen.png"
+local DEFAULT_CLOUD = "https://oleglit.github.io/daypane/manifest.json"
 local CACHE_IMG_NAME = "kindledash_screen.png"
 local CACHE_TS_NAME  = "kindledash_ts.txt"
 
@@ -355,7 +355,9 @@ function KindleDash:loadCloud()
         local cloud = s:readSetting("cloud") or DEFAULT_CLOUD
         local legacy = "https://shenliucn-prog.github.io/shawn-kanban/"
         if cloud == legacy .. "screen.png" or cloud == legacy .. "screen-en.png"
-            or cloud == DEFAULT_CLOUD:gsub("screen.png$", "screen-en.png") then
+            or cloud == "https://oleglit.github.io/daypane/screen.png"
+            or cloud == "https://oleglit.github.io/daypane/screen-en.png"
+            or cloud == "https://oleglit.github.io/daypane/en/manifest.json" then
             cloud = DEFAULT_CLOUD
         end
         if cloud ~= s:readSetting("cloud") then
@@ -1261,7 +1263,7 @@ function KindleDash:setCloudUrl()
         title = self:tr("云端图地址 (完整 URL)"),
         description = self:tr("电脑关机时从这儿取图。留空则只用局域网。"),
         input = self.cloud or "",
-        input_hint = self:tr("https://用户名.github.io/daypane/screen.png"),
+        input_hint = self:tr("https://用户名.github.io/daypane/manifest.json"),
         buttons = {
             {
                 { text = self:tr("取消"), callback = function() UIManager:close(dialog) end },
