@@ -767,32 +767,6 @@ def draw_fx(draw, d, y):
     return y + box_h + 12
 
 
-def draw_clocks(draw, d, y):
-    """世界时钟（两列）"""
-    y = draw_title(draw, y, tr('世界时钟'))
-    cl = (d.get('clocks') or {}).get('items', [])
-    ff = f(F_BODY)
-    fs = f(F_SMALL)
-    colw = CONTENT_W // 2
-    if not cl:
-        draw.text((PAD, y), tr('时钟不可用'), fill=GRAY, font=fs)
-        return y + F_SMALL
-    for i in range(0, len(cl), 2):
-        ry = y + (i // 2) * (F_BODY + 8)
-        for j, c in enumerate(cl[i:i+2]):
-            x = PAD + j * colw
-            city = c.get('city', '')
-            if LANG == 'en':
-                city = clip(draw, city, ff, colw - 150)
-            tme = c.get('time', '')[:5]
-            draw.text((x, ry), city, fill=BLACK, font=ff)
-            cw = tw(draw, city, ff)
-            draw.text((x + cw + 12, ry + 2), tme, fill=BLACK, font=ff)
-            dw2 = tw(draw, tme, ff)
-            date_s = '' if LANG == 'en' else (c.get('date') or '').replace('周', ' 周')
-            draw.text((x + cw + dw2 + 24, ry + 6), date_s, fill=GRAY, font=fs)
-    return y + math.ceil(len(cl) / 2) * (F_BODY + 8)
-
 def draw_mlb(draw, d, y):
     """MLB · 道奇 / 教士：上一场比分 + 下一场时间（均为北京时间）"""
     y = draw_title(draw, y, tr('MLB · 道奇 / 教士'), d.get('mlb'))
@@ -1116,7 +1090,6 @@ def render(d, out_path=None, language="zh", page=1, pages=1):
         'ai': lambda y: draw_ai(draw, d, y),
         'weather': lambda y: draw_weather(draw, d, y),
         'market': lambda y: draw_market(draw, d, y),
-        'clocks': lambda y: draw_clocks(draw, d, y),
         'fx': lambda y: draw_fx(draw, d, y),
         'calendar': lambda y: draw_month_calendar(draw, d, y),
         'mlb': lambda y: draw_mlb(draw, d, y),
