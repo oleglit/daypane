@@ -1,6 +1,7 @@
 name: Release plugin
 on:
   push:
+    branches: ['russian-dashboard']
     tags: ['v*']
 permissions:
   contents: write
@@ -13,6 +14,15 @@ jobs:
         with:
           python-version: '3.11'
       - run: python tools/package_release.py
+      - name: Upload installable plugin package
+        if: startsWith(github.ref, 'refs/heads/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: DayPane-Kindle-plugin-0.4.1
+          path: |
+            dist/*.zip
+            dist/SHA256SUMS
+          retention-days: 30
       - name: Publish versioned package
         env:
           GH_TOKEN: ${{ github.token }}
