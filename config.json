@@ -8,20 +8,7 @@
   },
   "fxBase": "EUR",
   "stocks": [],
-  "clocks": [
-    {
-      "city": "Рига",
-      "tz": "Europe/Riga"
-    },
-    {
-      "city": "Киев",
-      "tz": "Europe/Kyiv"
-    },
-    {
-      "city": "Лондон",
-      "tz": "Europe/London"
-    }
-  ],
+  "clocks": [],
   "claudeCap": 1000,
   "codexCap": 500,
   "display": {
