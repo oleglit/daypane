@@ -426,7 +426,7 @@ def draw_title(draw, y, text, src=None):
         # 右对齐到内容区右边界；小字按标题基线附近排，视觉上跟标题齐平
         draw.text((SCREEN_W - PAD - tw(draw, label, fs), y + (F_TITLE - F_SMALL)),
                   label, fill=GRAY, font=fs)
-    return y + F_TITLE + 8
+    return y + F_TITLE + 18  # extra clearance for enlarged labels and outlined value cards
 
 def draw_month_calendar(draw, d, y):
     """Компактная сетка текущего месяца, неделя начинается с понедельника."""
