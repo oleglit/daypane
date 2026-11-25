@@ -492,17 +492,16 @@ function KindleDash:endpoints()
     -- 空格时，以前会拼出 "http://http://host//api/screen" 这种永远连不上的 URL。
     local host = tostring(self.host or ""):match("^%s*(.-)%s*$") or ""
     host = host:gsub("^https?://", ""):gsub("/+$", "")
+    -- Prefer the published cloud image: the LAN renderer may be an older copy
+    -- and otherwise silently wins even when a fresh cloud dashboard is available.
+    local cloud = tostring(self.cloud or ""):match("^%s*(.-)%s*$") or ""
+    if page == 1 and cloud:match("^https?://%S+$") then
+        table.insert(list, { url = cloud, name = self:tr("云端") })
+    end
+    -- LAN remains a fallback when the cloud image cannot be reached.
     if host ~= "" and not host:find("%s") then
         table.insert(list, { url = "http://" .. host .. "/api/screen?lang=" .. lang .. "&page=" .. page,
                              name = self:tr("本机") })
-    end
-    -- 云端 Pages 只有页 1。页 2/3 挂上去会在电脑关机时显示成"看板"，内容与页码
-    -- 不符，还会在健康日志里留下假的 download_verified。
-    local cloud = tostring(self.cloud or ""):match("^%s*(.-)%s*$") or ""
-    -- 只允许 http(s)：request() 里虽然也会拦，但别让非法 scheme 混进图源列表
-    -- 变成一条"永远失败"的降级分支，污染健康日志。
-    if page == 1 and cloud:match("^https?://%S+$") then
-        table.insert(list, { url = cloud, name = self:tr("云端") })
     end
     return list
 end
