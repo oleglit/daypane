@@ -212,7 +212,14 @@ _fc = {}
 _font_errors = []
 
 
+FONT_BOOST = 1.20
+FONT_BOOST_EXEMPT = False
+
+
 def f(size, bold=False):
+    # Enlarge information text; calendar and top date line are exempt.
+    if not FONT_BOOST_EXEMPT:
+        size = round(size * FONT_BOOST)
     k = (size, bold)
     if k in _fc:
         return _fc[k]
@@ -376,8 +383,13 @@ def draw_header(draw, d, y):
     else:
         date_label = now.strftime('%d.%m.%Y')
         weekday_label = now.strftime('%A')
+    global FONT_BOOST_EXEMPT
+    previous_exempt = FONT_BOOST_EXEMPT
+    FONT_BOOST_EXEMPT = True
     fd = f(F_DATE, bold=True)
+    FONT_BOOST_EXEMPT = False
     fw = f(F_BODY + 3, bold=True)
+    FONT_BOOST_EXEMPT = previous_exempt
     date_x = (SCREEN_W - tw(draw, date_label, fd)) // 2
     weekday_x = (SCREEN_W - tw(draw, weekday_label, fw)) // 2
     draw.text((date_x, y), date_label, fill=BLACK, font=fd)
@@ -418,6 +430,9 @@ def draw_title(draw, y, text, src=None):
 
 def draw_month_calendar(draw, d, y):
     """Компактная сетка текущего месяца, неделя начинается с понедельника."""
+    global FONT_BOOST_EXEMPT
+    previous_exempt = FONT_BOOST_EXEMPT
+    FONT_BOOST_EXEMPT = True
     y = draw_title(draw, y, 'Календарь')
     now = display_now()
     months = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']
@@ -519,6 +534,7 @@ def draw_month_calendar(draw, d, y):
         vw = tw(draw, shown, value_font)
         draw.text((int(cx - vw/2), y + 65), shown, fill=BLACK, font=value_font)
 
+    FONT_BOOST_EXEMPT = previous_exempt
     return y + 65 + F_SMALL + 10
 
 def draw_news(draw, d, y):
@@ -713,24 +729,42 @@ def draw_market(draw, d, y):
     return y + rows * (F_BODY + 6)
 
 def draw_fx(draw, d, y):
-    """Курсы валют относительно базовой валюты EUR."""
+    """Три валютных курса в одну строку, каждый в отдельной рамке."""
     fx = d.get('fx') or {}
     y = draw_title(draw, y, 'Курсы валют', fx)
     if not fx.get('ok'):
         draw.text((PAD, y), 'Курсы валют временно недоступны', fill=GRAY, font=f(F_SMALL))
         return y + F_SMALL
     base = fx.get('base') or 'EUR'
-    base_symbol = '€' if base == 'EUR' else ('$' if base == 'USD' else '')
-    rows = [('USD', '$', fx.get('usd')), ('UAH', '₴', fx.get('uah'))]
-    ff = f(F_BODY)
-    for i, (code, symbol, value) in enumerate(rows):
-        rate = ('%.4f' % value).rstrip('0').rstrip('.') if isinstance(value, (int, float)) else '—'
-        line = '1 %s = %s %s' % (base_symbol or base, rate, symbol)
-        draw.text((PAD, y + i * (F_BODY + 6)), line, fill=BLACK, font=ff)
+    base_symbol = '€' if base == 'EUR' else ('$' if base == 'USD' else base)
+    usd = fx.get('usd')
+    uah = fx.get('uah')
     cross = fx.get('usdUah')
-    rate = ('%.4f' % cross).rstrip('0').rstrip('.') if isinstance(cross, (int, float)) else '—'
-    draw.text((PAD, y + len(rows) * (F_BODY + 6)), '1 $ = ' + rate + ' ₴', fill=BLACK, font=ff)
-    return y + (len(rows) + 1) * (F_BODY + 6)
+
+    def fmt(value):
+        return ('%.4f' % value).rstrip('0').rstrip('.') if isinstance(value, (int, float)) else '—'
+
+    items = [
+        '1 %s = %s $' % (base_symbol, fmt(usd)),
+        '1 %s = %s ₴' % (base_symbol, fmt(uah)),
+        '1 $ = %s ₴' % fmt(cross),
+    ]
+    ff = f(F_BODY, bold=True)
+    box_gap = 12
+    box_w = (CONTENT_W - box_gap * 2) // 3
+    box_h = max(66, F_BODY + 24)
+    for i, label in enumerate(items):
+        left = PAD + i * (box_w + box_gap)
+        draw.rounded_rectangle([left, y, left + box_w, y + box_h],
+                               radius=8, outline=BLACK, width=2)
+        shown = clip(draw, label, ff, box_w - 16)
+        text_w = tw(draw, shown, ff)
+        bbox = draw.textbbox((0, 0), shown, font=ff)
+        text_h = bbox[3] - bbox[1]
+        draw.text((left + (box_w - text_w) // 2,
+                   y + (box_h - text_h) // 2 - bbox[1]),
+                  shown, fill=BLACK, font=ff)
+    return y + box_h + 12
 
 
 def draw_clocks(draw, d, y):
