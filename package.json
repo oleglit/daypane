@@ -1,6 +1,6 @@
 {
   "name": "daypane",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "DayPane: repurpose a jailbroken Amazon Kindle as an e-ink dashboard with KOReader. Weather, world clocks, market data and daily information, rendered locally or with GitHub Actions.",
   "type": "module",
   "main": "src/index.js",
