@@ -632,23 +632,39 @@ end
 function KindleDash:fetchScreen()
     local sha = self.sha256
     local failures = {}
+    self._fetch_stage = "Подготовка загрузки"
+    self._fetch_diagnostic = "Ожидание ответа"
     for _, ep in ipairs(self:endpoints()) do
         local manifest_url = self:manifestUrl(ep.url)
         local meta, url = {}, ep.url
         local error_message
         if manifest_url then
-            local raw, err = self:request(manifest_url, 128 * 1024)
+            self._fetch_stage = "Запрос манифеста"
+            self._fetch_diagnostic = ep.name .. ": GET manifest"
+            local raw, err, status = self:request(manifest_url, 128 * 1024)
+            if raw then
+                self._fetch_diagnostic = ep.name .. ": манифест получен (" .. tostring(#raw) .. " байт), проверка JSON"
+            else
+                self._fetch_diagnostic = ep.name .. ": ошибка манифеста: " .. tostring(err)
+            end
             local ok, value = pcall(JSON.decode, raw or "")
             if not ok or type(value) ~= "table" or value.schemaVersion ~= 1
                 or type(value.sha256) ~= "string" or not value.sha256:match("^%x+$") or #value.sha256 ~= 64
                 or type(value.generatedAt) ~= "number" or value.generatedAt <= 0
                 or value.generatedAt > os.time() * 1000 + 300000 then
                 error_message = err or "Invalid manifest"
+                self._fetch_stage = "Проверка манифеста"
+                self._fetch_diagnostic = ep.name .. ": манифест не прошёл проверку: " .. tostring(error_message)
             else
                 meta = value
                 url = resolve(manifest_url, value.image_url)
+                self._fetch_stage = "Манифест проверен"
+                self._fetch_diagnostic = ep.name .. ": manifest OK"
                 if not url then error_message = "Invalid image URL" end
             end
+        else
+            self._fetch_stage = "Загрузка изображения"
+            self._fetch_diagnostic = ep.name .. ": manifest не предусмотрен, прямой URL"
         end
         -- 清单挂了不等于图片挂了：老版本 PC 服务没有 /api/display，
         -- 或 GitHub Pages 偶发 404。此时直接取原始图片 URL —— 少了 sha
@@ -656,13 +672,18 @@ function KindleDash:fetchScreen()
         -- 比直接掉到"本地缓存/离线"好得多。
         local direct_body
         if error_message and manifest_url then
+            self._fetch_stage = "Резервная загрузка изображения"
+            self._fetch_diagnostic = ep.name .. ": fallback GET image после ошибки манифеста"
             local body, err = self:request(ep.url, MAX_IMAGE)
             if body and body:sub(1, 8) == "\137PNG\13\10\26\10" then
                 direct_body = body
                 error_message = nil
                 meta = {}
+                self._fetch_stage = "Изображение получено"
+                self._fetch_diagnostic = ep.name .. ": PNG получен напрямую (" .. tostring(#body) .. " байт)"
             else
                 error_message = tostring(error_message) .. "; direct: " .. tostring(err or "Invalid PNG")
+                self._fetch_diagnostic = ep.name .. ": манифест и резервная загрузка не удались: " .. tostring(error_message)
             end
         end
         if direct_body then
@@ -680,22 +701,36 @@ function KindleDash:fetchScreen()
                     return bytes, nil, ep.name, true
                 end
             end
+            self._fetch_stage = "Загрузка изображения"
+            self._fetch_diagnostic = ep.name .. ": GET image"
             local body, err = self:request(url, MAX_IMAGE)
             if body and body:sub(1, 8) == "\137PNG\13\10\26\10" then
+                self._fetch_diagnostic = ep.name .. ": PNG получен (" .. tostring(#body) .. " байт), проверка контрольной суммы"
                 if not meta.sha256 or not sha or sha(body) == meta.sha256:lower() then
                     if sha then meta.sha256 = sha(body) end
                     meta.source = ep.name
+                    self._fetch_stage = "Изображение проверено"
+                    self._fetch_diagnostic = ep.name .. ": PNG и контрольная сумма проверены (" .. tostring(#body) .. " байт)"
                     self._candidate_meta = meta
                     return body, nil, ep.name, false
                 end
                 error_message = "Image checksum mismatch"
+                self._fetch_stage = "Проверка изображения"
+                self._fetch_diagnostic = ep.name .. ": ошибка: " .. error_message
             else
                 error_message = err or "Invalid PNG"
+                self._fetch_stage = "Загрузка изображения"
+                self._fetch_diagnostic = ep.name .. ": ошибка изображения: " .. tostring(error_message)
             end
         end
         failures[#failures + 1] = ep.name .. ": " .. tostring(error_message)
+        self._fetch_diagnostic = ep.name .. ": " .. tostring(error_message)
     end
-    return nil, table.concat(failures, "; ")
+    self._fetch_stage = "Загрузка не удалась"
+    local combined = table.concat(failures, "; ")
+    self._fetch_diagnostic = combined ~= "" and combined or "Нет настроенных источников"
+    self:record("fetch_failed", self._fetch_diagnostic)
+    return nil, combined
 end
 
 -- 校验并落盘 PNG（校验头、尺寸、与清单一致性），避免半张图 / 坏图。
@@ -912,6 +947,8 @@ function KindleDash:showStatus()
         .. self:label("Last attempt: ", "最近尝试：") .. fmtTime(self._last_attempt) .. "\n"
         .. self:label("Next attempt: ", "下次尝试：") .. fmtTime(self._next_attempt) .. "\n"
         .. self:label("Last error: ", "最近错误：") .. tostring(self._last_error or "—") .. "\n"
+        .. "Этап загрузки: " .. tostring(self._fetch_stage or "—") .. "\n"
+        .. "Подробности: " .. tostring(self._fetch_diagnostic or "—") .. "\n"
         .. self:label("Health log: settings/kindledash-health.json", "诊断记录：settings/kindledash-health.json")
     UIManager:show(InfoMessage:new{ text = text })
 end
