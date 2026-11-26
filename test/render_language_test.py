@@ -81,7 +81,7 @@ class LanguageTests(unittest.TestCase):
         import tempfile
         data = {
             'ok': True,
-            'weather': {'ok': True, 'city': '深圳', 'text': '晴', 'temp': 26, 'high': 29, 'low': 22, 'humidity': 60},
+            'weather': {'ok': True, 'city': '深圳', 'text': '晴', 'temp': 26, 'feelsLike': 24, 'windSpeed': 12, 'windDirection': 315, 'high': 29, 'low': 22, 'humidity': 60},
             'fx': {'ok': True, 'cny': 7.1, 'inr': 83, 'base': 'USD'},
             'stocks': {'ok': True, 'items': [{'sym': 'SPY', 'label': '标普500', 'price': '700',
                                               'currency': 'USD', 'changePct': -1.2, 'spark': {'closes': [1, 2, 3]}}]},
