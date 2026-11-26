@@ -16,6 +16,22 @@ const WMO = {
 };
 const wmo = (c) => WMO[c] ?? `码${c}`;
 
+async function fetchForecastWithRetry(url) {
+  // Open-Meteo occasionally stalls from GitHub-hosted runners. The previous
+  // 8s single-shot timeout made one transient delay blank both weather and
+  // sunrise/sunset. Give the endpoint a longer window and one clean retry.
+  let result = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    result = await fetchJson(url, { timeoutMs: 20000 });
+    if (result.ok) return result;
+    if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 1200));
+  }
+  return {
+    ...result,
+    error: `forecast failed after 2 attempts: ${result?.error || 'unknown error'}`
+  };
+}
+
 export async function getWeather() {
   const { lat, lon, city } = getConfig().weather;
   // 一次请求同时供页 1（当前天气）与页 2（日出日落 / 未来几天）使用。
@@ -41,7 +57,7 @@ export async function getWeather() {
   // 10 分钟里，画面会显示"新城市 + 老城市的温度"，还带着旧的 fetchedAt。
   return cached('weather:' + city + ':' + lat + ',' + lon, 10 * 60 * 1000, async () => {
     const [r, moonResponse] = await Promise.all([
-      fetchJson(url),
+      fetchForecastWithRetry(url),
       cached('moon:' + city + ':' + lat + ',' + lon + ':' + localDate, 30 * 60 * 1000,
         () => fetchJson(moonUrl, { headers: { 'User-Agent': 'DayPane/1.0 https://github.com/oleglit/daypane' } }))
     ]);
