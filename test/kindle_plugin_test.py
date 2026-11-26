@@ -11,6 +11,8 @@ lua = LuaRuntime()
 lua.execute('''
 local base = {}
 function base:new(o) return setmetatable(o or {}, {__index=self}) end
+-- Minimal InputContainer touch-zone API used by the dashboard gesture tests.
+function base:registerTouchZones(zones) self._test_touch_zones = zones end
 unpack = table.unpack
 
 -- sha256.lua runs on LuaJIT's `bit` library.
@@ -34,9 +36,10 @@ local queue = {}
 UI = {queue=queue}
 function UI:scheduleIn(delay, fn) queue[fn] = delay end
 function UI:unschedule(fn) queue[fn] = nil end
-function UI:show() end
+function UI:show(widget) self.last_shown=widget end
 function UI:close() end
 function UI:suspend() end
+function UI:setDirty(widget, mode, region) self.last_dirty={widget=widget,mode=mode,region=region} end
 
 PS = {}
 POWER = {resets=0}
@@ -104,8 +107,21 @@ package.preload['logger'] = function() return {info=function() end,warn=function
 package.preload['ui/uimanager'] = function() return UI end
 for _, name in ipairs({'ui/widget/container/widgetcontainer','ui/widget/infomessage',
 'ui/widget/inputdialog','ui/widget/container/inputcontainer','ui/widget/imagewidget',
-'ui/geometry','ui/gesturerange','luasettings','libs/libkoreader-lfs'}) do
+'ui/widget/overlapgroup','ui/widget/container/framecontainer','ui/geometry','ui/gesturerange','luasettings','libs/libkoreader-lfs'}) do
     package.preload[name]=function() return base end
+end
+package.preload['ui/widget/textwidget'] = function()
+    local T = {}
+    function T:new(o) return setmetatable(o or {}, {__index=self}) end
+    function T:setText(text) self.text = tostring(text) end
+    function T:getSize() return {w=500,h=30} end
+    return T
+end
+package.preload['ui/font'] = function()
+    return {getFace=function(_, name, size) return {name=name,size=size} end}
+end
+package.preload['ffi/blitbuffer'] = function()
+    return {COLOR_BLACK=0, COLOR_WHITE=255}
 end
 ''')
 
@@ -141,6 +157,16 @@ assert(UI.queue[old] == nil and UI.queue[d._auto_timer] and #WAKEUP.tasks == 0)
 -- screensaver blocked via lipc (the two channels the keepalive plugin uses).
 assert(d._holding == false and PS.pause_auto_suspend == nil and #EXEC.commands == 0)
 assert(d:showDashboard('/tmp/hold.png', false) == true)
+-- The dashboard must register full-screen tap/swipe zones and consume gestures.
+local zones = d.dash_widget._test_touch_zones
+assert(zones and #zones == 2)
+assert(zones[1].id == 'daypane_tap' and zones[1].screen_zone.ratio_w == 1)
+assert(zones[2].id == 'daypane_swipe' and zones[2].screen_zone.ratio_h == 1)
+local destinations = {}
+d.gotoPage = function(self, page) destinations[#destinations + 1] = page end
+assert(zones[1].handler({pos={x=536,y=700}}) == true)
+assert(zones[2].handler({direction='west',pos={x=500,y=700}}) == true)
+assert(destinations[1] == 2)
 assert(d._holding == true and PS.pause_auto_suspend == true)
 assert(EXEC.commands[#EXEC.commands] == 'lipc-set-prop com.lab126.powerd preventScreenSaver 1')
 -- A manual power-key suspend must release the hold (otherwise the firmware
@@ -218,36 +244,77 @@ G_reader_settings = {readSetting=function() return 'C' end}
 local d = Plugin:new{}
 d.settingsPath=function() return '/tmp/settings' end
 d.cacheDir=function() return '/tmp' end
-assert(d:loadLanguage() == 'en' and saved.language == 'en')
-d.language='en'
-assert(d:loadCloud():match('screen%-en.png$'))
-assert(d:tr('刷新看板') == 'Refresh dashboard')
-local menus={}; d:addToMainMenu(menus)
-assert(menus['0kindledash'].sub_item_table_func()[2].text == 'Refresh dashboard')
-d.host='example.test:8787'; d.cloud=d:loadCloud()
-assert(d:endpoints()[1].url:match('/api/screen') and d:endpoints()[1].url:match('lang=en&page=1$'))
-local en_cache=d:cacheImg()
-d:setLanguage('zh')
-assert(saved.language=='zh' and d.cloud:match('/screen.png$'))
-assert(d:cacheImg() ~= en_cache)
-assert(menus['0kindledash'].sub_item_table_func()[2].text == '刷新看板')
-d.cloud='https://example.test/custom.png'; d:setLanguage('en')
-assert(d.cloud=='https://example.test/custom.png')
+assert(d:loadLanguage() == 'ru')
+assert(saved.language == 'ru')
+d.language='ru'
+assert(d:loadCloud() == 'https://oleglit.github.io/daypane/manifest.json')
 saved={host='old-device'}
-assert(d:loadLanguage()=='zh' and saved.language=='zh')
+assert(d:loadLanguage()=='ru')
 saved={}; G_reader_settings.readSetting=function() return 'zh_CN' end
-assert(d:loadLanguage()=='zh')
+assert(d:loadLanguage()=='ru')
 for _, filename in ipairs({'screen.png', 'screen-en.png'}) do
     saved={cloud='https://shenliucn-prog.github.io/shawn-kanban/'..filename}
-    local expected='https://shenliucn-prog.github.io/daypane/'..filename
+    local expected='https://oleglit.github.io/daypane/manifest.json'
     assert(d:loadCloud()==expected and saved.cloud==expected)
     assert(d:loadCloud()==expected, 'migration must be idempotent')
 end
-for _, url in ipairs({'', 'https://example.test/custom.png',
+saved={cloud=''}
+local default_cloud='https://oleglit.github.io/daypane/manifest.json'
+assert(d:loadCloud()==default_cloud and saved.cloud==default_cloud,
+    'blank saved cloud URL must restore the built-in Pages source')
+for _, url in ipairs({'https://example.test/custom.png',
     'https://shenliucn-prog.github.io/shawn-kanban/custom.png'}) do
     saved={cloud=url}; assert(d:loadCloud()==url and saved.cloud==url)
 end
-saved={}
-print('PASS: legacy built-in URL migration preserves custom and empty URLs')
-print('PASS: English first install, persisted locale, Chinese migration, dynamic menus, custom URLs, separate caches')
+print('PASS: Russian dashboard default, legacy URL migration and custom URL preservation')
+''')
+
+lua.execute('''
+-- Fetch diagnostics must identify the failing stage, survive into the device
+-- status screen, and distinguish a manifest failure from an image failure.
+local d = Plugin:new{}
+d.language = 'ru'
+d.cacheDir=function() return '/tmp' end
+d.ensureCacheDir=function() end
+d.endpoints=function() return {{url='https://example.test/screen.png',name='云端'}} end
+d.manifestUrl=function() return 'https://example.test/manifest.json' end
+d.request=function(self, url)
+    if url:match('manifest') then return nil, 'HTTP/network: 404' end
+    return nil, 'HTTP/network: timeout'
+end
+local body, err = d:fetchScreen()
+assert(body == nil and err:match('HTTP/network: 404'))
+assert(d._fetch_stage == 'Загрузка не удалась')
+assert(d._fetch_diagnostic:match('HTTP/network: 404'))
+assert(d._fetch_diagnostic:match('HTTP/network: timeout'))
+d._last_attempt = os.time()
+d._last_error = err
+d:showStatus()
+assert(UI.last_shown and UI.last_shown.text:match('Этап загрузки: Загрузка не удалась'))
+assert(UI.last_shown.text:match('Подробности:'))
+print('PASS: cloud manifest/image failure diagnostics are shown in device status')
+''')
+
+lua.execute('''
+-- The menu's home action must return to page 1 and force a cloud refresh.
+local d = Plugin:new{}
+d.page = 2
+d.setOption=function(self, key, value) self.saved_page=value end
+d.record=function() end
+d.releaseNetwork=function() end
+d.cacheImg=function() return '/tmp/no-cache.png' end
+d.fileExists=function() return false end
+d.requestRefresh=function(self, force, immediate)
+    self.refresh_requested = force and immediate
+end
+assert(d:openHomePage() == true)
+assert(d:currentPage() == 1 and d.saved_page == 1)
+assert(d.refresh_requested == true)
+local same = Plugin:new{}
+same.page = 1
+same.requestRefresh=function(self, force, immediate)
+    self.refresh_requested = force and immediate
+end
+assert(same:openHomePage() == true and same.refresh_requested == true)
+print('PASS: home page action switches to page 1 and refreshes')
 ''')

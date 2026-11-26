@@ -40,20 +40,25 @@ local RenderImage = require("ui/renderimage")
 local lfs = require("libs/libkoreader-lfs")
 local logger = require("logger")
 local JSON = require("json")
+local OverlapGroup = require("ui/widget/overlapgroup")
+local FrameContainer = require("ui/widget/container/framecontainer")
+local TextWidget = require("ui/widget/textwidget")
+local Font = require("ui/font")
+local Blitbuffer = require("ffi/blitbuffer")
 
 -- 网络请求超时：电脑关机时不要让用户等太久，8 秒无响应就切换下一级。
 -- 只在本次请求期间生效：socket.http 是 KOReader 全局模块，永久把它改成 8 秒
 -- 会连累 OPDS 下载、同步等其它功能的超时策略（见 request() 里的 save/restore）。
 local REQUEST_TIMEOUT = 8
 
-local VERSION = "0.4.0"
+local VERSION = "0.4.2"
 local PAGE_COUNT = 3
 local REFRESH_SEC = 30 * 60
 local MAX_IMAGE = 4 * 1024 * 1024
 local DEFAULT_HOST = ""
 local DEFAULT_PORT = "8787"
 -- 云端静态图完整 URL（GitHub Pages），留空则只用局域网
-local DEFAULT_CLOUD = "https://shenliucn-prog.github.io/daypane/screen.png"
+local DEFAULT_CLOUD = "https://oleglit.github.io/daypane/manifest.json"
 local CACHE_IMG_NAME = "kindledash_screen.png"
 local CACHE_TS_NAME  = "kindledash_ts.txt"
 
@@ -97,17 +102,14 @@ KindleDash.sha256 = sha256
 function KindleDash:loadLanguage()
     local settings = LuaSettings:open(self:settingsPath())
     local saved = settings:readSetting("language")
-    if saved == "zh" or saved == "en" then return saved end
-    if settings:has("host") or settings:has("cloud") or settings:has("port") then
-        settings:saveSetting("language", "zh")
+    -- DayPane cloud content is Russian by default, independently of KOReader UI locale.
+    -- Older releases auto-selected English/Chinese from the device language; migrate
+    -- those implicit choices to Russian so the dashboard does not unexpectedly appear in English.
+    if saved ~= "ru" then
+        settings:saveSetting("language", "ru")
         settings:flush()
-        return "zh"
     end
-    local locale = G_reader_settings and G_reader_settings:readSetting("language") or "en"
-    local language = tostring(locale):lower():match("^zh") and "zh" or "en"
-    settings:saveSetting("language", language)
-    settings:flush()
-    return language
+    return "ru"
 end
 
 local EN = {
@@ -132,6 +134,7 @@ local EN = {
     ["电脑关机时从这儿取图。留空则只用局域网。"] = "Used when the computer is unavailable. Leave empty for LAN only.",
     ["https://用户名.github.io/daypane/screen.png"] = "https://username.github.io/daypane/screen-en.png",
     ["已清空云端地址"] = "Cloud URL cleared",
+    ["Открыть главную страницу"] = "Open main page",
     ["刷新看板"] = "Refresh dashboard",
     ["设置局域网服务器"] = "Set LAN server",
     ["设置云端图地址"] = "Set cloud image URL",
@@ -156,8 +159,43 @@ local EN = {
     ["AI 额度走局域网实时，关机显示最后值\n"] = "AI activity estimates may retain old values offline\n",
     ["顶部下滑/顶部点击返回看板退出"] = "Tap / swipe down from the top to exit",
 }
+local RU = {
+    ["未配置任何图源"] = "Не настроен источник изображения",
+    ["看板显示失败:\\n"] = "Не удалось показать дашборд:\\n",
+    ["看板失败:\\n"] = "Ошибка дашборда:\\n",
+    ["离线 · 最后 "] = "Офлайн · последнее обновление ",
+    ["离线 · 显示上次缓存"] = "Офлайн · показан сохранённый экран",
+    ["刷新失败: "] = "Ошибка обновления: ",
+    ["来自云端（电脑未连上）"] = "Загружено из облака (локальный сервер недоступен)",
+    ["自动刷新: 开 (整点/半点)"] = "Автообновление: включено (каждые 30 минут)",
+    ["自动刷新: 关"] = "Автообновление: выключено",
+    ["服务器地址 (IP:端口)"] = "Адрес локального сервера (IP:порт)",
+    ["例如 192.168.31.188:8787"] = "Например, 192.168.1.23:8787",
+    ["取消"] = "Отмена", ["保存"] = "Сохранить",
+    ["已保存: "] = "Сохранено: ",
+    ["云端图地址 (完整 URL)"] = "Адрес облачной картинки (полный URL)",
+    ["电脑关机时从这儿取图。留空则只用局域网。"] = "Загрузка отсюда, когда компьютер выключен. Пустое поле — только локальная сеть.",
+    ["已清空云端地址"] = "Адрес облака очищен",
+    ["Открыть главную страницу"] = "Открыть главную страницу",
+    ["刷新看板"] = "Обновить дашборд",
+    ["设置局域网服务器"] = "Настроить локальный сервер",
+    ["设置云端图地址"] = "Настроить адрес облачной картинки",
+    ["切换自动刷新 (整点/半点)"] = "Включить/выключить автообновление",
+    ["设备状态"] = "Состояние устройства",
+    ["刷新间隔"] = "Интервал обновления",
+    ["刷新间隔（分钟，5–1440）"] = "Интервал обновления (минуты, 5–1440)",
+    ["设置：图片或清单地址"] = "Настройка: адрес картинки или манифеста",
+    ["保存并测试"] = "Сохранить и проверить",
+    ["实验：单次 RTC 唤醒测试"] = "Тест однократного пробуждения RTC",
+    ["此设备不支持 RTC 唤醒接口。"] = "Это устройство не поддерживает пробуждение RTC.",
+    ["关于"] = "О плагине",
+    ["开"] = "ВКЛ", ["关"] = "ВЫКЛ",
+    ["顶部下滑/顶部点击返回看板退出"] = "Проведите вниз от верхнего края или нажмите сверху, чтобы выйти",
+}
 function KindleDash:tr(text)
-    return self.language == "en" and (EN[text] or text) or text
+    if self.language == "en" then return EN[text] or text end
+    if self.language == "ru" then return RU[text] or text end
+    return text
 end
 
 function KindleDash:setLanguage(language)
@@ -251,8 +289,32 @@ function KindleDash:setOption(key, value)
         local s = self:preferences(); s:saveSetting(key, value); s:flush()
     end)
 end
+local RU_LABELS = {
+    ["Device status"] = "Состояние устройства",
+    ["Screen: "] = "Экран: ",
+    ["RTC wake: "] = "Пробуждение RTC: ",
+    ["available"] = "доступно",
+    ["unavailable"] = "недоступно",
+    ["Hold awake: "] = "Не выключать экран: ",
+    ["Page: "] = "Страница: ",
+    ["Source: "] = "Источник: ",
+    ["Content generated: "] = "Сформировано: ",
+    ["Cloud state: "] = "Состояние облака: ",
+    ["Freshness: "] = "Актуальность: ",
+    ["Unknown"] = "Неизвестно",
+    ["Stale"] = "Устарело",
+    ["Within 45 minutes"] = "За последние 45 минут",
+    ["Age (min): "] = "Возраст данных (мин): ",
+    ["Downloaded: "] = "Загружено: ",
+    ["Last attempt: "] = "Последняя попытка: ",
+    ["Next attempt: "] = "Следующая попытка: ",
+    ["Last error: "] = "Последняя ошибка: ",
+    ["Health log: "] = "Журнал диагностики: ",
+}
 function KindleDash:label(en, zh)
-    return self.language == "en" and en or zh
+    if self.language == "en" then return en end
+    if self.language == "ru" then return RU_LABELS[en] or en end
+    return zh
 end
 
 function KindleDash:loadHost()
@@ -292,12 +354,18 @@ end
 function KindleDash:loadCloud()
     local ok, s = pcall(function() return LuaSettings:open(self:settingsPath()) end)
     if ok and s and s:has("cloud") then
-        local cloud = s:readSetting("cloud") or DEFAULT_CLOUD
-        local legacy = "https://shenliucn-prog.github.io/shawn-kanban/"
-        if cloud == legacy .. "screen.png" then
+        -- Lua treats an empty string as truthy. A previously cleared cloud URL
+        -- must not suppress the built-in Pages source when no LAN host is configured.
+        local cloud = s:readSetting("cloud")
+        if type(cloud) ~= "string" or cloud:match("^%s*$") then
             cloud = DEFAULT_CLOUD
-        elseif cloud == legacy .. "screen-en.png" then
-            cloud = DEFAULT_CLOUD:gsub("screen.png$", "screen-en.png")
+        end
+        local legacy = "https://shenliucn-prog.github.io/shawn-kanban/"
+        if cloud == legacy .. "screen.png" or cloud == legacy .. "screen-en.png"
+            or cloud == "https://oleglit.github.io/daypane/screen.png"
+            or cloud == "https://oleglit.github.io/daypane/screen-en.png"
+            or cloud == "https://oleglit.github.io/daypane/en/manifest.json" then
+            cloud = DEFAULT_CLOUD
         end
         if cloud ~= s:readSetting("cloud") then
             s:saveSetting("cloud", cloud)
@@ -305,7 +373,7 @@ function KindleDash:loadCloud()
         end
         return cloud
     end
-    return self.language == "en" and DEFAULT_CLOUD:gsub("screen.png$", "screen-en.png") or DEFAULT_CLOUD
+    return DEFAULT_CLOUD
 end
 function KindleDash:saveCloud(url)
     local ok, s = pcall(function() return LuaSettings:open(self:settingsPath()) end)
@@ -485,23 +553,22 @@ end
 
 function KindleDash:endpoints()
     local list = {}
-    local lang = self.language == "en" and "en" or "zh"
+    local lang = self.language == "en" and "en" or "ru"
     local page = self:currentPage()
     -- 设置对话框里用户手输的内容要洗干净：粘了 "http://" 前缀、尾部斜杠或
     -- 空格时，以前会拼出 "http://http://host//api/screen" 这种永远连不上的 URL。
     local host = tostring(self.host or ""):match("^%s*(.-)%s*$") or ""
     host = host:gsub("^https?://", ""):gsub("/+$", "")
+    -- Prefer the published cloud image: the LAN renderer may be an older copy
+    -- and otherwise silently wins even when a fresh cloud dashboard is available.
+    local cloud = tostring(self.cloud or ""):match("^%s*(.-)%s*$") or ""
+    if page == 1 and cloud:match("^https?://%S+$") then
+        table.insert(list, { url = cloud, name = self:tr("云端") })
+    end
+    -- LAN remains a fallback when the cloud image cannot be reached.
     if host ~= "" and not host:find("%s") then
         table.insert(list, { url = "http://" .. host .. "/api/screen?lang=" .. lang .. "&page=" .. page,
                              name = self:tr("本机") })
-    end
-    -- 云端 Pages 只有页 1。页 2/3 挂上去会在电脑关机时显示成"看板"，内容与页码
-    -- 不符，还会在健康日志里留下假的 download_verified。
-    local cloud = tostring(self.cloud or ""):match("^%s*(.-)%s*$") or ""
-    -- 只允许 http(s)：request() 里虽然也会拦，但别让非法 scheme 混进图源列表
-    -- 变成一条"永远失败"的降级分支，污染健康日志。
-    if page == 1 and cloud:match("^https?://%S+$") then
-        table.insert(list, { url = cloud, name = self:tr("云端") })
     end
     return list
 end
@@ -510,7 +577,8 @@ end
 function KindleDash:manifestUrl(image)
     if image:match("%.json$") then return image end
     if image:match("/api/screen") then return image:gsub("/api/screen", "/api/display") end
-    if image:match("^https://shenliucn%-prog%.github%.io/daypane/") then
+    if image:match("^https://oleglit%.github%.io/daypane/")
+        or image:match("^https://shenliucn%-prog%.github%.io/daypane/") then
         if image:match("/screen%-en%.png$") then return image:gsub("screen%-en%.png$", "en/manifest.json") end
         return image:gsub("screen.png$", "manifest.json")
     end
@@ -571,23 +639,39 @@ end
 function KindleDash:fetchScreen()
     local sha = self.sha256
     local failures = {}
+    self._fetch_stage = "Подготовка загрузки"
+    self._fetch_diagnostic = "Ожидание ответа"
     for _, ep in ipairs(self:endpoints()) do
         local manifest_url = self:manifestUrl(ep.url)
         local meta, url = {}, ep.url
         local error_message
         if manifest_url then
-            local raw, err = self:request(manifest_url, 128 * 1024)
+            self._fetch_stage = "Запрос манифеста"
+            self._fetch_diagnostic = ep.name .. ": GET manifest"
+            local raw, err, status = self:request(manifest_url, 128 * 1024)
+            if raw then
+                self._fetch_diagnostic = ep.name .. ": манифест получен (" .. tostring(#raw) .. " байт), проверка JSON"
+            else
+                self._fetch_diagnostic = ep.name .. ": ошибка манифеста: " .. tostring(err)
+            end
             local ok, value = pcall(JSON.decode, raw or "")
             if not ok or type(value) ~= "table" or value.schemaVersion ~= 1
                 or type(value.sha256) ~= "string" or not value.sha256:match("^%x+$") or #value.sha256 ~= 64
                 or type(value.generatedAt) ~= "number" or value.generatedAt <= 0
                 or value.generatedAt > os.time() * 1000 + 300000 then
                 error_message = err or "Invalid manifest"
+                self._fetch_stage = "Проверка манифеста"
+                self._fetch_diagnostic = ep.name .. ": манифест не прошёл проверку: " .. tostring(error_message)
             else
                 meta = value
                 url = resolve(manifest_url, value.image_url)
+                self._fetch_stage = "Манифест проверен"
+                self._fetch_diagnostic = ep.name .. ": manifest OK"
                 if not url then error_message = "Invalid image URL" end
             end
+        else
+            self._fetch_stage = "Загрузка изображения"
+            self._fetch_diagnostic = ep.name .. ": manifest не предусмотрен, прямой URL"
         end
         -- 清单挂了不等于图片挂了：老版本 PC 服务没有 /api/display，
         -- 或 GitHub Pages 偶发 404。此时直接取原始图片 URL —— 少了 sha
@@ -595,13 +679,18 @@ function KindleDash:fetchScreen()
         -- 比直接掉到"本地缓存/离线"好得多。
         local direct_body
         if error_message and manifest_url then
+            self._fetch_stage = "Резервная загрузка изображения"
+            self._fetch_diagnostic = ep.name .. ": fallback GET image после ошибки манифеста"
             local body, err = self:request(ep.url, MAX_IMAGE)
             if body and body:sub(1, 8) == "\137PNG\13\10\26\10" then
                 direct_body = body
                 error_message = nil
                 meta = {}
+                self._fetch_stage = "Изображение получено"
+                self._fetch_diagnostic = ep.name .. ": PNG получен напрямую (" .. tostring(#body) .. " байт)"
             else
                 error_message = tostring(error_message) .. "; direct: " .. tostring(err or "Invalid PNG")
+                self._fetch_diagnostic = ep.name .. ": манифест и резервная загрузка не удались: " .. tostring(error_message)
             end
         end
         if direct_body then
@@ -619,22 +708,36 @@ function KindleDash:fetchScreen()
                     return bytes, nil, ep.name, true
                 end
             end
+            self._fetch_stage = "Загрузка изображения"
+            self._fetch_diagnostic = ep.name .. ": GET image"
             local body, err = self:request(url, MAX_IMAGE)
             if body and body:sub(1, 8) == "\137PNG\13\10\26\10" then
+                self._fetch_diagnostic = ep.name .. ": PNG получен (" .. tostring(#body) .. " байт), проверка контрольной суммы"
                 if not meta.sha256 or not sha or sha(body) == meta.sha256:lower() then
                     if sha then meta.sha256 = sha(body) end
                     meta.source = ep.name
+                    self._fetch_stage = "Изображение проверено"
+                    self._fetch_diagnostic = ep.name .. ": PNG и контрольная сумма проверены (" .. tostring(#body) .. " байт)"
                     self._candidate_meta = meta
                     return body, nil, ep.name, false
                 end
                 error_message = "Image checksum mismatch"
+                self._fetch_stage = "Проверка изображения"
+                self._fetch_diagnostic = ep.name .. ": ошибка: " .. error_message
             else
                 error_message = err or "Invalid PNG"
+                self._fetch_stage = "Загрузка изображения"
+                self._fetch_diagnostic = ep.name .. ": ошибка изображения: " .. tostring(error_message)
             end
         end
         failures[#failures + 1] = ep.name .. ": " .. tostring(error_message)
+        self._fetch_diagnostic = ep.name .. ": " .. tostring(error_message)
     end
-    return nil, table.concat(failures, "; ")
+    self._fetch_stage = "Загрузка не удалась"
+    local combined = table.concat(failures, "; ")
+    self._fetch_diagnostic = combined ~= "" and combined or "Нет настроенных источников"
+    self:record("fetch_failed", self._fetch_diagnostic)
+    return nil, combined
 end
 
 -- 校验并落盘 PNG（校验头、尺寸、与清单一致性），避免半张图 / 坏图。
@@ -698,32 +801,40 @@ function KindleDash:buildScreen(img_path, w, h)
     }
     local container = InputContainer:new{ dimen = Geom:new{ w = w, h = h } }
     container[1] = img
-    -- 吃手势，防止 KOReader 的翻页/退出穿透到看板上。
-    container.ges_events = {
-        TapScroll = { GestureRange:new{ ges = "tap", range = function() return container.dimen end } },
-        SwipeScroll = { GestureRange:new{ ges = "swipe", range = function() return container.dimen end } },
-    }
-    function container:onTapScroll(_, ges)
-        if not (ges and ges.pos) then return true end
-        -- 顶部 10% 区域点击 = 退出（Kindle 无 Back 键，靠此关闭看板）。
-        -- 退出优先于翻页，顶部整条都是安全区，不会被误判成左右翻页。
-        if ges.pos.y < h * 0.1 then self:onClose(); return true end
-        -- 两侧各 22% 点按换页；中间 56% 留给内容，避免"想看仔细点"就跳页。
-        if ges.pos.x < w * 0.22 then dash:gotoPage(dash:currentPage() - 1)
-        elseif ges.pos.x > w * 0.78 then dash:gotoPage(dash:currentPage() + 1) end
-        return true
-    end
-    function container:onSwipeScroll(_, ges)
-        if not ges then return true end
-        -- 顶部 25% 下滑 = 退出
-        if ges.direction == "south" and ges.pos and ges.pos.y < h * 0.25 then
-            self:onClose(); return true
-        end
-        -- 左滑(west)下一页、右滑(east)上一页，和 KOReader 翻页方向一致。
-        if ges.direction == "west" then dash:gotoPage(dash:currentPage() + 1)
-        elseif ges.direction == "east" then dash:gotoPage(dash:currentPage() - 1) end
-        return true
-    end
+    -- Register explicit full-screen touch zones (the KOReader-supported API).
+    -- This consumes gestures before they can fall through to the file browser.
+    container:registerTouchZones({
+        {
+            id = "daypane_tap",
+            ges = "tap",
+            screen_zone = { ratio_x = 0, ratio_y = 0, ratio_w = 1, ratio_h = 1 },
+            handler = function(ges)
+                if not (ges and ges.pos) then return true end
+                -- Top 10% tap closes the dashboard.
+                if ges.pos.y < h * 0.1 then container:onClose(); return true end
+                -- Tap the left/right edge to change pages.
+                if ges.pos.x < w * 0.22 then dash:gotoPage(dash:currentPage() - 1)
+                elseif ges.pos.x > w * 0.78 then dash:gotoPage(dash:currentPage() + 1) end
+                return true
+            end,
+        },
+        {
+            id = "daypane_swipe",
+            ges = "swipe",
+            screen_zone = { ratio_x = 0, ratio_y = 0, ratio_w = 1, ratio_h = 1 },
+            handler = function(ges)
+                if not ges then return true end
+                -- Swipe down from the top quarter closes the dashboard.
+                if ges.direction == "south" and ges.pos and ges.pos.y < h * 0.25 then
+                    container:onClose(); return true
+                end
+                -- Swipe left for next page, right for previous page.
+                if ges.direction == "west" then dash:gotoPage(dash:currentPage() + 1)
+                elseif ges.direction == "east" then dash:gotoPage(dash:currentPage() - 1) end
+                return true
+            end,
+        },
+    })
     -- 关闭逻辑只有一份：Kindle 无返回键，退出入口是顶部点按/下滑 (onClose)
     -- 和机型的物理返回 (onBack)。以前两份复制粘贴，改一处漏一处就会
     -- 出现"关掉了但仍在常亮/仍在定时刷新"这类半关闭状态。
@@ -795,6 +906,16 @@ end
 
 -- 左右滑 / 点按两侧换页。刻意不做自动轮播：这块屏是"想看才翻"的，
 -- 自己跳页会把放松用的副屏变成又一个催促源。
+function KindleDash:openHomePage()
+    -- The cloud dashboard is the primary page. Provide a menu action so users
+    -- can recover without relying on touch gestures in the image widget.
+    if self:currentPage() == 1 then
+        self:requestRefresh(true, true)
+        return true
+    end
+    return self:gotoPage(1)
+end
+
 function KindleDash:gotoPage(target)
     local n = math.floor(tonumber(target) or 1)
     -- 首尾相接：三页来回翻不用记方向，也不会撞到"滑不动"的死胡同。
@@ -843,6 +964,8 @@ function KindleDash:showStatus()
         .. self:label("Last attempt: ", "最近尝试：") .. fmtTime(self._last_attempt) .. "\n"
         .. self:label("Next attempt: ", "下次尝试：") .. fmtTime(self._next_attempt) .. "\n"
         .. self:label("Last error: ", "最近错误：") .. tostring(self._last_error or "—") .. "\n"
+        .. "Этап загрузки: " .. tostring(self._fetch_stage or "—") .. "\n"
+        .. "Подробности: " .. tostring(self._fetch_diagnostic or "—") .. "\n"
         .. self:label("Health log: settings/kindledash-health.json", "诊断记录：settings/kindledash-health.json")
     UIManager:show(InfoMessage:new{ text = text })
 end
@@ -1202,7 +1325,7 @@ function KindleDash:setCloudUrl()
         title = self:tr("云端图地址 (完整 URL)"),
         description = self:tr("电脑关机时从这儿取图。留空则只用局域网。"),
         input = self.cloud or "",
-        input_hint = self:tr("https://用户名.github.io/daypane/screen.png"),
+        input_hint = self:tr("https://用户名.github.io/daypane/manifest.json"),
         buttons = {
             {
                 { text = self:tr("取消"), callback = function() UIManager:close(dialog) end },
@@ -1301,6 +1424,7 @@ function KindleDash:addToMainMenu(menu_items)
                 { text = "中文", checked_func = function() return self.language == "zh" end,
                   callback = function() self:setLanguage("zh") end },
             } },
+            { text = self:tr("Открыть главную страницу"), callback = function() self:openHomePage() end },
             { text = self:tr("刷新看板"), callback = function() self:safeRefresh() end },
             { text = self:tr("设置局域网服务器"), callback = function() self:setServerAddress() end },
             { text = self:tr("设置云端图地址"), callback = function() self:setCloudUrl() end },

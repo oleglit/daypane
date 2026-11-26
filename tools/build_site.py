@@ -71,11 +71,11 @@ def build(output, previous, generate, metadata):
     write_json(output / 'manifest.json', {
         'schemaVersion': 1, 'image_url': 'images/' + name, 'sha256': state['sha256'],
         'generatedAt': state['generatedAt'], 'state': state['state'], 'width': width, 'height': height,
-        'refreshAfterSeconds': 1800, 'staleAfterSeconds': 2700, 'language': metadata.get('language', 'zh')})
+        'refreshAfterSeconds': 1800, 'staleAfterSeconds': 2700, 'language': metadata.get('language', 'ru')})
     write_json(output / 'status.json', state)
     (output / '.nojekyll').write_text('')
-    (output / 'index.html').write_text('''<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>DayPane</title><style>body{font-family:system-ui;max-width:720px;margin:24px auto;padding:16px}img{width:100%}</style><h1>DayPane</h1><p id="status">检查更新时间…</p><img id="image" src="screen.png" alt="Kindle 看板"><script>
-async function refresh(){try{const s=await(await fetch('status.json?t='+Date.now())).json();const image=document.getElementById('image');if(image.dataset.hash!==s.sha256){image.src='images/'+s.sha256+'.png';image.dataset.hash=s.sha256;}const age=Math.max(0,Math.floor((Date.now()-s.generatedAt)/60000));document.getElementById('status').textContent=(age>45?'内容已过期 · ':s.state==='failed'?'本次生成失败，保留旧图 · ':'正常 · ')+'图片生成于 '+new Date(s.generatedAt).toLocaleString()+'（'+age+' 分钟前）';}catch(e){document.getElementById('status').textContent='无法读取生成状态';}}refresh();setInterval(refresh,60000);
+    (output / 'index.html').write_text('''<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>DayPane</title><style>body{font-family:system-ui;max-width:720px;margin:24px auto;padding:16px}img{width:100%}</style><h1>DayPane</h1><p id="status">Проверка обновления…</p><img id="image" src="screen.png" alt="Панель Kindle"><script>
+async function refresh(){try{const s=await(await fetch('status.json?t='+Date.now())).json();const image=document.getElementById('image');if(image.dataset.hash!==s.sha256){image.src='images/'+s.sha256+'.png';image.dataset.hash=s.sha256;}const age=Math.max(0,Math.floor((Date.now()-s.generatedAt)/60000));document.getElementById('status').textContent=(age>45?'Данные устарели · ':s.state==='failed'?'Ошибка генерации, сохранено старое изображение · ':'Всё в порядке · ')+'Изображение создано '+new Date(s.generatedAt).toLocaleString()+' ('+age+' мин. назад)';}catch(e){document.getElementById('status').textContent='Не удалось прочитать статус';}}refresh();setInterval(refresh,60000);
 </script></html>''', encoding='utf-8')
     return success
 
@@ -91,14 +91,20 @@ def main():
     work = output.parent / 'render-work'
     work.mkdir(exist_ok=True)
 
-    def generate(language="zh"):
+    def generate(language="ru"):
         subprocess.run([sys.executable, 'tools/render_screen.py', '--check-fonts'], check=True, timeout=20)
-        if language == 'zh':
+        # Collect public data once, then render each language from the same snapshot.
+        # The primary cloud dashboard is Russian; do not gate collection on Chinese output.
+        if not (work / 'dashboard.json').exists():
             with (work / 'dashboard.json').open('wb') as f:
                 subprocess.run(['node', 'tools/dump_dashboard.js'], stdout=f, check=True, timeout=120)
         data = json.loads((work / 'dashboard.json').read_text())
-        sections = {k: {'ok': bool(data.get(k, {}).get('ok')), 'fetchedAt': data.get(k, {}).get('fetchedAt')}
+        sections = {k: {'ok': bool(data.get(k, {}).get('ok')), 'fetchedAt': data.get(k, {}).get('fetchedAt'),
+                         'error': str(data.get(k, {}).get('error', ''))[:240] if not data.get(k, {}).get('ok') else ''}
                     for k in ('weather', 'stocks', 'fx', 'news', 'mlb')}
+        for name, section in sections.items():
+            if section['error']:
+                print('[data] %s unavailable: %s' % (name, section['error']), file=sys.stderr, flush=True)
         if not data.get('ok') or not any(v['ok'] for v in sections.values()):
             raise ValueError('all public data sources unavailable')
         subprocess.run([sys.executable, 'tools/render_screen.py', '--data', str(work / 'dashboard.json'),
@@ -126,11 +132,11 @@ def main():
         ok_en = build(english, previous_en, lambda: generate('en'), {'runId': run_id,
             'trigger': os.environ.get('GITHUB_EVENT_NAME', 'local'), 'language': 'en'})
         page = (english / 'index.html').read_text()
-        for zh, en in {'lang="zh"':'lang="en"', '检查更新时间…':'Checking freshness…',
-                       'Kindle 看板':'Kindle dashboard', '内容已过期 · ':'Stale · ',
-                       '本次生成失败，保留旧图 · ':'Generation failed; previous image retained · ',
-                       '正常 · ':'Ready · ', '图片生成于 ':'Image generated at ',
-                       '（':' (', ' 分钟前）':' minutes ago)', '无法读取生成状态':'Unable to read status'}.items():
+        for zh, en in {'lang="ru"':'lang="en"', 'Проверка обновления…':'Checking freshness…',
+                       'Панель Kindle':'Kindle dashboard', 'Данные устарели · ':'Stale · ',
+                       'Ошибка генерации, сохранено старое изображение · ':'Generation failed; previous image retained · ',
+                       'Всё в порядке · ':'Ready · ', 'Изображение создано ':'Image generated at ',
+                       ' мин. назад)':' minutes ago)', 'Не удалось прочитать статус':'Unable to read status'}.items():
             page = page.replace(zh, en)
         (english / 'index.html').write_text(page, encoding='utf-8')
         (output / 'screen-en.png').write_bytes((english / 'screen.png').read_bytes())

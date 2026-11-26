@@ -9,7 +9,7 @@ function forZone(tz) {
   let f = formatters.get(tz);
   if (!f) {
     f = {
-      time: new Intl.DateTimeFormat('zh-CN', {
+      time: new Intl.DateTimeFormat('ru-RU', {
         timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
       }),
       date: new Intl.DateTimeFormat('zh-CN', {

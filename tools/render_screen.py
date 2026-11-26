@@ -21,7 +21,7 @@ def display_now():
 from PIL import Image, ImageDraw, ImageFont
 
 # Language defaults to Chinese for backward-compatible personal deployments.
-LANG = 'zh'
+LANG = 'ru'
 LABELS = {
     '今日新闻 · AI': 'AI News', '新闻源暂不可用': 'News unavailable',
     'AI 用量': 'AI Usage', 'AI 用量 · 电脑离线': 'AI Usage · PC offline',
@@ -81,12 +81,42 @@ WEATHER_EN = {0:'Clear',1:'Mostly clear',2:'Partly cloudy',3:'Overcast',45:'Fog'
     85:'Snow showers',86:'Snow showers',95:'Thunderstorm',96:'Hailstorm',99:'Hailstorm'}
 
 def tr(text):
-    return LABELS.get(text, text) if LANG == 'en' else text
+    if LANG == 'en':
+        return LABELS.get(text, text)
+    if LANG == 'ru':
+        return {
+            '今日新闻 · AI': 'Новости Украины',
+            '新闻源暂不可用': 'Новостные источники недоступны',
+            '天气': 'Погода',
+            '天气不可用': 'Погода недоступна',
+            '市场': 'Рынки',
+            '世界时钟': 'Мировое время',
+            '时钟不可用': 'Время недоступно',
+            '慢信息': 'Календарь и природа',
+            '日光': 'Световой день',
+            '往后几天': 'Прогноз на 3 дня',
+            '日出日落暂不可用': 'Нет данных о восходе и закате',
+            '未来天气暂不可用': 'Нет прогноза',
+            '左右滑换页': 'Листайте экран',
+        }.get(text, text)
+    return text
 
 def localized_data(data):
     """Translate built-in labels without mutating the Chinese payload."""
     import copy
     d = copy.deepcopy(data)
+    if LANG == 'ru':
+        w = d.get('weather') or {}
+        weather_ru = {0:'Ясно',1:'Преимущественно ясно',2:'Переменная облачность',3:'Пасмурно',
+            45:'Туман',48:'Изморозь',51:'Морось',53:'Небольшой дождь',55:'Сильная морось',
+            56:'Ледяная морось',57:'Ледяной дождь',61:'Небольшой дождь',63:'Дождь',65:'Сильный дождь',
+            66:'Ледяной дождь',67:'Ледяной дождь',71:'Небольшой снег',73:'Снег',75:'Сильный снег',
+            77:'Снежная крупа',80:'Ливень',81:'Ливень',82:'Сильный ливень',85:'Снегопад',
+            86:'Сильный снегопад',95:'Гроза',96:'Гроза с градом',99:'Сильная гроза с градом'}
+        w['text'] = weather_ru.get(w.get('code'), 'Нет описания')
+        for day in (w.get('days') or []):
+            day['text'] = weather_ru.get(day.get('code'), '—')
+        return d
     if LANG != 'en':
         return d
     d['news'] = d.get('newsEn') or {'ok': False, 'items': []}
@@ -182,7 +212,14 @@ _fc = {}
 _font_errors = []
 
 
+FONT_BOOST = 1.20
+FONT_BOOST_EXEMPT = False
+
+
 def f(size, bold=False):
+    # Enlarge information text; calendar and top date line are exempt.
+    if not FONT_BOOST_EXEMPT:
+        size = round(size * FONT_BOOST)
     k = (size, bold)
     if k in _fc:
         return _fc[k]
@@ -338,22 +375,26 @@ def load_quotes():
 # ---------- 模块 ----------
 def draw_header(draw, d, y):
     now = display_now()
-    day = now.strftime('%d')
-    wd = '一二三四五六日'[now.weekday()]
-    mw = (['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.month-1] + ' ' + ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][now.weekday()]) if LANG == 'en' else '%d月 周%s' % (now.month, wd)
-    ts = now.strftime('%H:%M')
-    city = (d.get('weather') or {}).get('city') or ''
+    if LANG == 'ru':
+        months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря']
+        weekdays = ['понедельник','вторник','среда','четверг','пятница','суббота','воскресенье']
+        date_label = f"{now.day} {months[now.month - 1]} {now.year}"
+        weekday_label = weekdays[now.weekday()]
+    else:
+        date_label = now.strftime('%d.%m.%Y')
+        weekday_label = now.strftime('%A')
+    global FONT_BOOST_EXEMPT
+    previous_exempt = FONT_BOOST_EXEMPT
+    FONT_BOOST_EXEMPT = True
     fd = f(F_DATE, bold=True)
-    draw.text((PAD, y), day, fill=BLACK, font=fd)
-    dw = tw(draw, day, fd)
-    draw.text((PAD + dw + 24, y + 16), mw, fill=BLACK, font=f(F_MONTH, bold=True))
-    ft = f(F_TIME, bold=True)
-    tw_s = tw(draw, ts, ft)
-    draw.text((SCREEN_W - PAD - tw_s, y - 6), ts, fill=BLACK, font=ft)
-    if city:
-        fs = f(F_SMALL)
-        draw.text((SCREEN_W - PAD - tw(draw, city, fs), y + F_TIME + 6), city, fill=GRAY, font=fs)
-    return y + round(112 * (LAYOUT["fontScale"] if LAYOUT else 1))
+    FONT_BOOST_EXEMPT = False
+    fw = f(F_BODY + 3, bold=True)
+    FONT_BOOST_EXEMPT = previous_exempt
+    date_x = (SCREEN_W - tw(draw, date_label, fd)) // 2
+    weekday_x = (SCREEN_W - tw(draw, weekday_label, fw)) // 2
+    draw.text((date_x, y), date_label, fill=BLACK, font=fd)
+    draw.text((weekday_x, y + F_DATE + F_BODY + 20), weekday_label, fill=BLACK, font=fw)
+    return y + round(190 * (LAYOUT["fontScale"] if LAYOUT else 1))
 
 def stamp_label(src):
     """把模块数据里的 fetchedAt 变成右上角的时间标注。
@@ -361,6 +402,8 @@ def stamp_label(src):
     stale（本次拉取失败、用的是上次成功数据）时标成「缓存 HH:MM」。
     拿不到时间就返回 None，标题栏保持原样。
     """
+    # User requested a time-free dashboard: never print fetch timestamps.
+    return None
     if not isinstance(src, dict):
         return None
     ts = src.get('fetchedAt')
@@ -383,7 +426,116 @@ def draw_title(draw, y, text, src=None):
         # 右对齐到内容区右边界；小字按标题基线附近排，视觉上跟标题齐平
         draw.text((SCREEN_W - PAD - tw(draw, label, fs), y + (F_TITLE - F_SMALL)),
                   label, fill=GRAY, font=fs)
-    return y + F_TITLE + 8
+    return y + F_TITLE + 18  # extra clearance for enlarged labels and outlined value cards
+
+def draw_month_calendar(draw, d, y):
+    """Компактная сетка текущего месяца, неделя начинается с понедельника."""
+    global FONT_BOOST_EXEMPT
+    previous_exempt = FONT_BOOST_EXEMPT
+    FONT_BOOST_EXEMPT = True
+    y = draw_title(draw, y, 'Календарь')
+    now = display_now()
+    months = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']
+    weekdays = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс']
+    title = '%s %d' % (months[now.month - 1], now.year)
+    draw.text((PAD, y), title, fill=BLACK, font=f(F_BODY, bold=True))
+    y += F_BODY + 14
+    colw = CONTENT_W // 7
+    for i, label in enumerate(weekdays):
+        x = PAD + i * colw
+        draw.text((x + (colw - tw(draw, label, f(F_SMALL))) // 2, y), label, fill=GRAY, font=f(F_SMALL, bold=True))
+    y += F_SMALL + 12
+    import calendar as _calendar
+    weeks = _calendar.monthcalendar(now.year, now.month)
+    cell_h = 48
+    for row_index, week in enumerate(weeks):
+        for col, day in enumerate(week):
+            x = PAD + col * colw
+            top = y + row_index * cell_h
+            left, right = x + 3, x + colw - 3
+            bottom = top + cell_h - 4
+            if day == now.day:
+                draw.rectangle([left, top, right, bottom], fill=BLACK, outline=BLACK, width=2)
+            else:
+                draw.rectangle([left, top, right, bottom], outline=GRAY, width=2)
+            if day:
+                label = str(day)
+                font = f(F_BODY, bold=(day == now.day))
+                color = WHITE if day == now.day else BLACK
+                draw.text((x + (colw - tw(draw, label, font)) // 2, top + 3), label, fill=color, font=font)
+    y += len(weeks) * cell_h + 16
+
+    # Природная строка: восход/закат Солнца, восход/заход Луны и фаза.
+    weather = d.get('weather') or {}
+    phase_names = {
+        '新月': 'Новолуние', '蛾眉月': 'Молодая Луна',
+        '上弦月': 'Первая четверть', '盈凸月': 'Растущая Луна',
+        '满月': 'Полнолуние', '亏凸月': 'Убывающая Луна',
+        '下弦月': 'Последняя четверть', '残月': 'Старая Луна',
+    }
+    (phase_zh, _), moon_age = slowinfo.moon_phase(now.date(), (LAYOUT or {}).get('timezone') or 'Europe/Riga')
+    phase_label = phase_names.get(phase_zh, 'Фаза Луны')
+    hline_y = y + 5
+    draw.line([(PAD, hline_y), (SCREEN_W - PAD, hline_y)], fill=GRAY, width=1)
+    y = hline_y + 18
+
+    def sun_icon(cx, cy):
+        r = 9
+        draw.ellipse([cx-r, cy-r, cx+r, cy+r], outline=BLACK, width=3)
+        for angle in range(0, 360, 45):
+            a = math.radians(angle)
+            x1, yy1 = cx + math.cos(a)*14, cy + math.sin(a)*14
+            x2, yy2 = cx + math.cos(a)*20, cy + math.sin(a)*20
+            draw.line([(int(x1), int(yy1)), (int(x2), int(yy2))], fill=BLACK, width=3)
+
+    def moon_icon(cx, cy, age):
+        period = 29.530588853
+        illumination = (1 - math.cos(2 * math.pi * age / period)) / 2
+        waxing = age < period / 2
+        r = 16
+        draw.ellipse([cx-r, cy-r, cx+r, cy+r], fill=BLACK)
+        if illumination < 0.04:
+            draw.ellipse([cx-r, cy-r, cx+r, cy+r], outline=BLACK, width=2)
+        elif illumination > 0.96:
+            draw.ellipse([cx-r, cy-r, cx+r, cy+r], fill=WHITE, outline=BLACK, width=2)
+        elif abs(illumination - 0.5) < 0.09:
+            if waxing:
+                draw.rectangle([cx, cy-r, cx+r, cy+r], fill=WHITE)
+            else:
+                draw.rectangle([cx-r, cy-r, cx, cy+r], fill=WHITE)
+            draw.ellipse([cx-r, cy-r, cx+r, cy+r], outline=BLACK, width=2)
+        else:
+            offset = int((1 - 2 * illumination) * r) if waxing else int((2 * illumination - 1) * r)
+            draw.ellipse([cx-r+offset, cy-r, cx+r+offset, cy+r], fill=WHITE)
+            draw.ellipse([cx-r, cy-r, cx+r, cy+r], outline=BLACK, width=2)
+
+    # Пять компактных колонок: восход/закат Солнца и Луны; время местное, по Риге.
+    values = [
+        ('Восход', weather.get('sunrise') or '—', 'sun'),
+        ('Закат', weather.get('sunset') or '—', 'sun'),
+        ('Восход Луны', weather.get('moonrise') or '—', 'moon'),
+        ('Заход Луны', weather.get('moonset') or '—', 'moon'),
+        ('Фаза Луны', phase_label, 'phase'),
+    ]
+    zone_w = CONTENT_W / 5
+    label_font = f(max(F_SMALL - 2, 16))
+    value_font = f(F_SMALL, bold=True)
+    for i, (label, value, kind) in enumerate(values):
+        cx = int(PAD + zone_w * i + zone_w / 2)
+        if kind == 'sun':
+            sun_icon(cx, y + 18)
+        elif kind == 'moon':
+            moon_icon(cx, y + 18, moon_age)
+        else:
+            moon_icon(cx, y + 18, moon_age)
+        lw = tw(draw, label, label_font)
+        draw.text((int(cx - lw/2), y + 43), label, fill=GRAY, font=label_font)
+        shown = clip(draw, value, value_font, int(zone_w - 8))
+        vw = tw(draw, shown, value_font)
+        draw.text((int(cx - vw/2), y + 65), shown, fill=BLACK, font=value_font)
+
+    FONT_BOOST_EXEMPT = previous_exempt
+    return y + 65 + F_SMALL + 10
 
 def draw_news(draw, d, y):
     """今日新闻 · AI：中文一句话，按自然标点断句，绝不超页宽"""
@@ -463,8 +615,7 @@ def draw_ai(draw, d, y):
         draw.text((PAD, ry), name, fill=BLACK, font=ff)
         right = SCREEN_W - PAD if pct is None else SCREEN_W - PAD - bar_w - 20
         draw.text((right - tw(draw, val, fs), ry + 4), val, fill=GRAY, font=fs)
-        if pct is None:
-            continue
+        if pct is None:            continue
         bx = SCREEN_W - PAD - bar_w
         by = ry + 6
         r = bar_h // 2
@@ -477,6 +628,45 @@ def draw_ai(draw, d, y):
             draw.rounded_rectangle([bx, by, bx + fw, by + bar_h], radius=r, fill=BLACK)
     return y + len(rows) * (F_BODY + bar_h + gap)
 
+def draw_weather_icon(draw, x, y, code, size=34):
+    """Компактные монохромные пиктограммы: Kindle-friendly, без emoji."""
+    code = int(code) if isinstance(code, (int, float)) else -1
+    sun = code in (0, 1, 2)
+    cloud = code in (2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99)
+    snow = code in (71, 73, 75, 77, 85, 86)
+    rain = code in (51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99)
+    thunder = code in (95, 96, 99)
+    fog = code in (45, 48)
+    cx, cy = x + size // 2, y + size // 2
+    if sun:
+        r = 7
+        draw.ellipse((cx-r, cy-r-3, cx+r, cy+r-3), outline=BLACK, width=2)
+        for dx, dy in ((0,-15),(0,15),(-15,0),(15,0),(-11,-11),(11,-11),(-11,11),(11,11)):
+            draw.line((cx+dx//2, cy-3+dy//2, cx+dx, cy-3+dy), fill=BLACK, width=2)
+    if cloud:
+        # Three overlapping circles plus a baseline form a clear cloud silhouette.
+        base_y = y + 24
+        draw.arc((x+5, y+11, x+23, y+29), 180, 350, fill=BLACK, width=2)
+        draw.arc((x+13, y+3, x+31, y+27), 190, 350, fill=BLACK, width=2)
+        draw.arc((x+22, y+12, x+39, y+29), 190, 350, fill=BLACK, width=2)
+        draw.line((x+10, base_y, x+34, base_y), fill=BLACK, width=2)
+    if fog:
+        for yy in (y+13, y+21, y+29):
+            draw.line((x+4, yy, x+36, yy), fill=BLACK, width=2)
+    elif thunder:
+        draw.line((cx+1, y+23, cx-5, y+33, cx+1, y+33, cx-3, y+40), fill=BLACK, width=3)
+    elif rain:
+        for dx in (13, 23, 33):
+            draw.line((x+dx, y+29, x+dx-4, y+37), fill=BLACK, width=2)
+    elif snow:
+        for dx in (13, 25, 35):
+            draw.line((x+dx-3, y+32, x+dx+3, y+38), fill=BLACK, width=2)
+            draw.line((x+dx+3, y+32, x+dx-3, y+38), fill=BLACK, width=2)
+    if code not in range(0, 100):
+        draw.ellipse((x+12, y+12, x+28, y+28), outline=BLACK, width=2)
+        draw.text((x+17, y+10), "?", fill=BLACK, font=f(F_SMALL))
+
+
 def draw_weather(draw, d, y):
     w = d.get('weather', {})
     y = draw_title(draw, y, tr('天气'), w)
@@ -485,10 +675,69 @@ def draw_weather(draw, d, y):
         ft = f(F_BIG, bold=True)
         draw.text((PAD, y), t1, fill=BLACK, font=ft)
         tw1 = tw(draw, t1, ft)
-        det = ('%s  H%s L%s  RH%s%%' if LANG == 'en' else '%s  高%s 低%s  湿%s%%') % (w.get('text', ''), fnum(w.get('high')), fnum(w.get('low')), w.get('humidity', '?'))
-        draw.text((PAD + tw1 + 24, y + 14), det, fill=GRAY, font=f(F_SMALL))
-        # 温度大字用 56px 字体，实际字形高度超过 F_BIG，固定 y+F_BIG 会让字形底部压过分隔线
-        return draw.textbbox((PAD, y), t1, font=ft)[3] + 8
+        det = ('%s  H%s L%s  RH%s%%' if LANG == 'en' else ('%s  макс. %s° мин. %s°  влажн. %s%%' if LANG == 'ru' else '%s  高%s 低%s  湿%s%%')) % (w.get('text', ''), fnum(w.get('high')), fnum(w.get('low')), w.get('humidity', '?'))
+        detail_font = f(F_SMALL + 3, bold=True)
+        draw.text((PAD + tw1 + 24, y + 14), clip(draw, det, detail_font, CONTENT_W - tw1 - 24), fill=BLACK, font=detail_font)
+        # Current apparent temperature and wind: Open-Meteo wind speed is km/h,
+        # direction is degrees clockwise from north.
+        feels = fnum(w.get('feelsLike'))
+        wind_speed = fnum(w.get('windSpeed'))
+        wind_degrees = w.get('windDirection')
+        if isinstance(wind_degrees, (int, float)):
+            dirs = {
+                'ru': ['северный', 'северо-восточный', 'восточный', 'юго-восточный',
+                       'южный', 'юго-западный', 'западный', 'северо-западный'],
+                'en': ['north', 'northeast', 'east', 'southeast',
+                       'south', 'southwest', 'west', 'northwest'],
+                'zh': ['北风', '东北风', '东风', '东南风', '南风', '西南风', '西风', '西北风'],
+            }
+            wind_dir = dirs.get(LANG, dirs['ru'])[int((wind_degrees % 360 + 22.5) // 45) % 8]
+        else:
+            wind_dir = '—'
+        if LANG == 'ru':
+            feels_label = 'Ощущается как'
+            wind_label = 'Ветер'
+        elif LANG == 'en':
+            feels_label = 'Feels like'
+            wind_label = 'Wind'
+        else:
+            feels_label = '体感'
+            wind_label = '风'
+        wind_line = '%s %s°  ·  %s: %s м/с, %s' % (feels_label, feels, wind_label, wind_speed, wind_dir) if LANG == 'ru' else (
+            '%s %s°  ·  %s: %s km/h, %s' % (feels_label, feels, wind_label, wind_speed, wind_dir) if LANG == 'en' else
+            '%s %s°  ·  %s: %s km/h, %s' % (feels_label, feels, wind_label, wind_speed, wind_dir))
+        wind_font = f(F_SMALL + 1, bold=True)
+        wind_y = y + F_BIG + 22
+        draw.text((PAD, wind_y), clip(draw, wind_line, wind_font, CONTENT_W), fill=BLACK, font=wind_font)
+        wind_box = draw.textbbox((PAD, wind_y), wind_line, font=wind_font)
+        bottom = max(draw.textbbox((PAD, y), t1, font=ft)[3], wind_box[3]) + 8
+        days = (w.get('days') or [])[1:4]
+        if days:
+            ff = f(round(F_SMALL * 1.4), bold=True)  # уменьшено на 30%
+            row_y = bottom + 16
+            for i, day in enumerate(days):
+                raw = str(day.get('date') or '')
+                try:
+                    parts = [int(x) for x in raw.split('-') if x.isdigit()]
+                    month, dom = parts[-2], parts[-1]
+                    weekday_index = _date_weekday(today_year(), month, dom)
+                    weekday = 'ПнВтСрЧтПтСбВс'[weekday_index*2:weekday_index*2+2] if LANG == 'ru' else WEEKDAY_EN[weekday_index]
+                    date_label = '%02d.%02d %s' % (dom, month, weekday) if LANG == 'ru' else '%s %d' % (weekday, dom)
+                except (ValueError, IndexError):
+                    date_label = raw or '—'
+                condition = day.get('text') or '—'
+                temps = '%s° / %s°' % (fnum(day.get('high')), fnum(day.get('low')))
+                ry = row_y + i * 52  # compact rows leave room for feels-like and wind
+                draw.text((PAD, ry), date_label, fill=BLACK, font=ff)
+                icon_x, icon_y = PAD + 205, ry - 4
+                icon_base = Image.new('L', (48, 48), WHITE)
+                draw_weather_icon(ImageDraw.Draw(icon_base), 0, 0, day.get('code'), size=44)
+                icon_large = icon_base.resize((48, 48), Image.Resampling.NEAREST)
+                draw._image.paste(icon_large, (icon_x, icon_y))
+                draw.text((PAD + 315, ry), clip(draw, condition, ff, 330), fill=GRAY, font=ff)
+                draw.text((SCREEN_W - PAD - tw(draw, temps, ff), ry), temps, fill=BLACK, font=ff)
+            bottom = row_y + len(days) * 52
+        return bottom
     else:
         draw.text((PAD, y), tr('天气不可用'), fill=GRAY, font=f(F_SMALL))
         return y + F_SMALL + 8
@@ -511,31 +760,44 @@ def draw_market(draw, d, y):
             draw.text((x, ry), clip(draw, cell, ff, colw - 8), fill=BLACK, font=ff)
     return y + rows * (F_BODY + 6)
 
-def draw_clocks(draw, d, y):
-    """世界时钟（两列）"""
-    y = draw_title(draw, y, tr('世界时钟'))
-    cl = (d.get('clocks') or {}).get('items', [])
-    ff = f(F_BODY)
-    fs = f(F_SMALL)
-    colw = CONTENT_W // 2
-    if not cl:
-        draw.text((PAD, y), tr('时钟不可用'), fill=GRAY, font=fs)
+def draw_fx(draw, d, y):
+    """Три валютных курса в одну строку, каждый в отдельной рамке."""
+    fx = d.get('fx') or {}
+    y = draw_title(draw, y, 'Курсы валют', fx) + 12  # небольшой отступ под заголовком
+    if not fx.get('ok'):
+        draw.text((PAD, y), 'Курсы валют временно недоступны', fill=GRAY, font=f(F_SMALL))
         return y + F_SMALL
-    for i in range(0, len(cl), 2):
-        ry = y + (i // 2) * (F_BODY + 8)
-        for j, c in enumerate(cl[i:i+2]):
-            x = PAD + j * colw
-            city = c.get('city', '')
-            if LANG == 'en':
-                city = clip(draw, city, ff, colw - 150)
-            tme = c.get('time', '')[:5]
-            draw.text((x, ry), city, fill=BLACK, font=ff)
-            cw = tw(draw, city, ff)
-            draw.text((x + cw + 12, ry + 2), tme, fill=BLACK, font=ff)
-            dw2 = tw(draw, tme, ff)
-            date_s = '' if LANG == 'en' else (c.get('date') or '').replace('周', ' 周')
-            draw.text((x + cw + dw2 + 24, ry + 6), date_s, fill=GRAY, font=fs)
-    return y + math.ceil(len(cl) / 2) * (F_BODY + 8)
+    base = fx.get('base') or 'EUR'
+    base_symbol = '€' if base == 'EUR' else ('$' if base == 'USD' else base)
+    usd = fx.get('usd')
+    uah = fx.get('uah')
+    cross = fx.get('usdUah')
+
+    def fmt(value):
+        return ('%.4f' % value).rstrip('0').rstrip('.') if isinstance(value, (int, float)) else '—'
+
+    items = [
+        '1 %s = %s $' % (base_symbol, fmt(usd)),
+        '1 %s = %s ₴' % (base_symbol, fmt(uah)),
+        '1 $ = %s ₴' % fmt(cross),
+    ]
+    ff = f(F_BODY, bold=True)
+    box_gap = 12
+    box_w = (CONTENT_W - box_gap * 2) // 3
+    box_h = max(66, F_BODY + 24)
+    for i, label in enumerate(items):
+        left = PAD + i * (box_w + box_gap)
+        draw.rounded_rectangle([left, y, left + box_w, y + box_h],
+                               radius=8, outline=BLACK, width=2)
+        shown = clip(draw, label, ff, box_w - 16)
+        text_w = tw(draw, shown, ff)
+        bbox = draw.textbbox((0, 0), shown, font=ff)
+        text_h = bbox[3] - bbox[1]
+        draw.text((left + (box_w - text_w) // 2,
+                   y + (box_h - text_h) // 2 - bbox[1]),
+                  shown, fill=BLACK, font=ff)
+    return y + box_h + 12
+
 
 def draw_mlb(draw, d, y):
     """MLB · 道奇 / 教士：上一场比分 + 下一场时间（均为北京时间）"""
@@ -643,8 +905,8 @@ def draw_slow_calendar(draw, d, y):
         date_s = '%s %d, %s' % (MONTH_EN[today.month - 1], today.day, WEEKDAY_EN[today.weekday()])
         sub = '%d%% of the year' % progress
     else:
-        date_s = '%d月%d日 周%s' % (today.month, today.day, '一二三四五六日'[today.weekday()])
-        sub = '今年已过 %d%%' % progress
+        date_s = '%d %s · %s' % (today.day, ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'][today.month - 1], ['понедельник','вторник','среда','четверг','пятница','суббота','воскресенье'][today.weekday()])
+        sub = 'Год прошёл на %d%%' % progress
     draw.text((PAD, y), date_s, fill=BLACK, font=fbig)
     draw.text((SCREEN_W - PAD - tw(draw, sub, fs), y + 22), sub, fill=GRAY, font=fs)
     y += row + 12
@@ -654,7 +916,10 @@ def draw_slow_calendar(draw, d, y):
         if LANG == 'en':
             line = '%s · Next: %s in %dd' % (current[1] if current else '—', upcoming[1], upcoming[3])
         else:
-            line = '%s · 下一个节气 %s（%d 天后）' % (current[0] if current else '—', upcoming[0], upcoming[3])
+            term_ru = {'春分':'Весеннее равноденствие','清明':'Цинмин','谷雨':'Гуюй','立夏':'Начало лета','小满':'Сяомань','芒种':'Ман种','夏至':'Летнее солнцестояние','小暑':'Малая жара','大暑':'Большая жара','立秋':'Начало осени','处暑':'Конец жары','白露':'Белые росы','秋分':'Осеннее равноденствие','寒露':'Холодные росы','霜降':'Иней','立冬':'Начало зимы','小雪':'Малый снег','大雪':'Большой снег','冬至':'Зимнее солнцестояние','小寒':'Малый холод','大寒':'Большой холод','立春':'Начало весны','雨水':'Юйшуй','惊蛰':'Пробуждение насекомых'}
+            cur_ru = term_ru.get(current[0], 'Сезонный период') if current else '—'
+            next_ru = term_ru.get(upcoming[0], 'Следующий период')
+            line = '%s · Далее: %s через %d дн.' % (cur_ru, next_ru, upcoming[3])
     else:
         # term_at 对任何年份都能算出下一个节气，此分支正常不可达；
         # 万一走到，也别把节气行写成「天气暂不可用」（早期版本复制错标签）。
@@ -667,8 +932,9 @@ def draw_slow_calendar(draw, d, y):
         weekend_s = 'It is the weekend' if weekend == 0 else 'Saturday in %dd' % weekend
         line = '%s · %.0f days old · %s' % (moon_en, age, weekend_s)
     else:
-        weekend_s = '正在周末' if weekend == 0 else '距周六 %d 天' % weekend
-        line = '%s · 月龄 %.0f 天 · %s' % (moon_zh, age, weekend_s)
+        moon_ru = {'新月':'Новолуние','蛾眉月':'Молодая Луна','上弦月':'Первая четверть','盈凸月':'Растущая Луна','满月':'Полнолуние','亏凸月':'Убывающая Луна','下弦月':'Последняя четверть','残月':'Старая Луна'}.get(moon_zh, 'Фаза Луны')
+        weekend_s = 'Выходные' if weekend == 0 else 'До субботы %d дн.' % weekend
+        line = '%s · Лунный возраст %.0f дн. · %s' % (moon_ru, age, weekend_s)
     draw.text((PAD, y), clip(draw, line, ff, CONTENT_W), fill=GRAY, font=ff)
     y += row
 
@@ -678,7 +944,8 @@ def draw_slow_calendar(draw, d, y):
         if LANG == 'en':
             line = '%s in %dd' % (en, days) if days else '%s is today' % en
         else:
-            line = '距%s %d 天' % (zh, days) if days else '今天是%s' % zh
+            holiday_ru = {'元旦':'Новый год','劳动节':'День труда','国庆节':'Национальный день','圣诞节':'Рождество'}.get(zh, 'Праздник')
+            line = 'До праздника «%s» %d дн.' % (holiday_ru, days) if days else 'Сегодня: %s' % holiday_ru
         draw.text((PAD, y), line, fill=GRAY, font=fs)
     return y + F_BODY + 6
 
@@ -802,9 +1069,11 @@ def draw_footer(draw, d, y, offline=False, last_ok=None, page=1, pages=1):
         tail = ('Page %d/%d · %s' % (page, pages, tr('左右滑换页'))) if LANG == 'en' \
             else ('第 %d/%d 页 · %s' % (page, pages, tr('左右滑换页')))
     else:
-        tail = 'Swipe from top to exit' if LANG == 'en' else '顶部下滑返回'
+        tail = 'Swipe from top to exit' if LANG == 'en' else ('Смахните сверху для выхода' if LANG == 'ru' else '顶部下滑返回')
     if LANG == 'en':
         head = ('DayPane · Offline · Last %s' % (last_ok or '?')) if offline else ('DayPane · Updated %s' % now)
+    elif LANG == 'ru':
+        head = ('DayPane · офлайн · последнее обновление %s' % (last_ok or '?')) if offline else ('DayPane · обновлено %s' % now)
     else:
         head = ('DayPane · 离线 · 最后 %s' % (last_ok or '?')) if offline else ('DayPane · 更新 %s' % now)
     txt = head + ' · ' + tail
@@ -844,7 +1113,7 @@ def render(d, out_path=None, language="zh", page=1, pages=1):
 
     y = PAD
     y = draw_header(draw, d, y)
-    y += 10
+    y += 22  # больше воздуха между днём недели и разделительной линией
     thickline(draw, y, BLACK, 4)
     y += 16
 
@@ -853,7 +1122,8 @@ def render(d, out_path=None, language="zh", page=1, pages=1):
         'ai': lambda y: draw_ai(draw, d, y),
         'weather': lambda y: draw_weather(draw, d, y),
         'market': lambda y: draw_market(draw, d, y),
-        'clocks': lambda y: draw_clocks(draw, d, y),
+        'fx': lambda y: draw_fx(draw, d, y),
+        'calendar': lambda y: draw_month_calendar(draw, d, y),
         'mlb': lambda y: draw_mlb(draw, d, y),
         'quote': lambda y: draw_quote(draw, d, y, quotes),
         'slow_calendar': lambda y: draw_slow_calendar(draw, d, y),
@@ -869,7 +1139,7 @@ def render(d, out_path=None, language="zh", page=1, pages=1):
         mods = [registry['slow_calendar'], registry['sun'], registry['forecast']] if page == 2 \
             else [registry[name] for name in LAYOUT['modules']]
         # 页 2 只有三个模块，间距放宽一点才不像一张挤在顶部的清单。
-        gap = 34 if page == 2 else 14
+        gap = 34 if page == 2 else 4
         for fn in mods:
             y = fn(y)
             hline(draw, y + 8, GRAY, 1)
@@ -900,7 +1170,7 @@ def render(d, out_path=None, language="zh", page=1, pages=1):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--lang', choices=['en', 'zh'], default='zh')
+    ap.add_argument('--lang', choices=['en', 'zh', 'ru'], default='ru')
     ap.add_argument('--out')
     ap.add_argument('--data')
     ap.add_argument('--url', default='http://127.0.0.1:8787/api/dashboard')
