@@ -294,3 +294,27 @@ assert(UI.last_shown and UI.last_shown.text:match('Этап загрузки: З
 assert(UI.last_shown.text:match('Подробности:'))
 print('PASS: cloud manifest/image failure diagnostics are shown in device status')
 ''')
+
+lua.execute('''
+-- The menu's home action must return to page 1 and force a cloud refresh.
+local d = Plugin:new{}
+d.page = 2
+d.setOption=function(self, key, value) self.saved_page=value end
+d.record=function() end
+d.releaseNetwork=function() end
+d.cacheImg=function() return '/tmp/no-cache.png' end
+d.fileExists=function() return false end
+d.requestRefresh=function(self, force, immediate)
+    self.refresh_requested = force and immediate
+end
+assert(d:openHomePage() == true)
+assert(d:currentPage() == 1 and d.saved_page == 1)
+assert(d.refresh_requested == true)
+local same = Plugin:new{}
+same.page = 1
+same.requestRefresh=function(self, force, immediate)
+    self.refresh_requested = force and immediate
+end
+assert(same:openHomePage() == true and same.refresh_requested == true)
+print('PASS: home page action switches to page 1 and refreshes')
+''')
