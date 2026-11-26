@@ -11,6 +11,8 @@ lua = LuaRuntime()
 lua.execute('''
 local base = {}
 function base:new(o) return setmetatable(o or {}, {__index=self}) end
+-- Minimal InputContainer touch-zone API used by the dashboard gesture tests.
+function base:registerTouchZones(zones) self._test_touch_zones = zones end
 unpack = table.unpack
 
 -- sha256.lua runs on LuaJIT's `bit` library.
@@ -155,6 +157,16 @@ assert(UI.queue[old] == nil and UI.queue[d._auto_timer] and #WAKEUP.tasks == 0)
 -- screensaver blocked via lipc (the two channels the keepalive plugin uses).
 assert(d._holding == false and PS.pause_auto_suspend == nil and #EXEC.commands == 0)
 assert(d:showDashboard('/tmp/hold.png', false) == true)
+-- The dashboard must register full-screen tap/swipe zones and consume gestures.
+local zones = d.dash_widget._test_touch_zones
+assert(zones and #zones == 2)
+assert(zones[1].id == 'daypane_tap' and zones[1].screen_zone.ratio_w == 1)
+assert(zones[2].id == 'daypane_swipe' and zones[2].screen_zone.ratio_h == 1)
+local destinations = {}
+d.gotoPage = function(self, page) destinations[#destinations + 1] = page end
+assert(zones[1].handler({pos={x=536,y=700}}) == true)
+assert(zones[2].handler({direction='west',pos={x=500,y=700}}) == true)
+assert(destinations[1] == 2)
 assert(d._holding == true and PS.pause_auto_suspend == true)
 assert(EXEC.commands[#EXEC.commands] == 'lipc-set-prop com.lab126.powerd preventScreenSaver 1')
 -- A manual power-key suspend must release the hold (otherwise the firmware
