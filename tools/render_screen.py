@@ -722,16 +722,16 @@ def draw_weather(draw, d, y):
                     date_label = raw or '—'
                 condition = day.get('text') or '—'
                 temps = '%s° / %s°' % (fnum(day.get('high')), fnum(day.get('low')))
-                ry = row_y + i * 62  # компактнее после уменьшения прогноза
+                ry = row_y + i * 52  # compact rows leave room for feels-like and wind
                 draw.text((PAD, ry), date_label, fill=BLACK, font=ff)
-                icon_x, icon_y = PAD + 205, ry - 12
+                icon_x, icon_y = PAD + 205, ry - 4
                 icon_base = Image.new('L', (48, 48), WHITE)
                 draw_weather_icon(ImageDraw.Draw(icon_base), 0, 0, day.get('code'), size=44)
-                icon_large = icon_base.resize((62, 62), Image.Resampling.NEAREST)
+                icon_large = icon_base.resize((48, 48), Image.Resampling.NEAREST)
                 draw._image.paste(icon_large, (icon_x, icon_y))
                 draw.text((PAD + 315, ry), clip(draw, condition, ff, 330), fill=GRAY, font=ff)
                 draw.text((SCREEN_W - PAD - tw(draw, temps, ff), ry), temps, fill=BLACK, font=ff)
-            bottom = row_y + len(days) * (F_SMALL * 2 + 18)
+            bottom = row_y + len(days) * 52
         return bottom
     else:
         draw.text((PAD, y), tr('天气不可用'), fill=GRAY, font=f(F_SMALL))
