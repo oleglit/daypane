@@ -39,6 +39,7 @@ export async function getWeather() {
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}` +
     `&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,wind_speed_10m,wind_direction_10m` +
+    `&wind_speed_unit=ms` +
     `&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset` +
     `&timezone=auto&forecast_days=4`;
   const timezone = getConfig().display?.timezone || 'Europe/Riga';
