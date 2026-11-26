@@ -54,6 +54,8 @@ class PageTests(unittest.TestCase):
         assert(d:cacheTs():match('_en_p3'))
         d.language = 'zh'
 
+        -- Endpoint assertions below are for the Russian dashboard profile.
+        d.language = 'ru'
         -- 局域网 URL 带页码；云端 Pages 只有页 1，页 2/3 不能挂云图源。
         d.page = 1
         local e1 = d:endpoints()
