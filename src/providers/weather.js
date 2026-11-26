@@ -38,7 +38,7 @@ export async function getWeather() {
   // 多取 4 天不会增加请求数，也不用为慢信息再接一个数据源。
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}` +
-    `&current=temperature_2m,weather_code,relative_humidity_2m` +
+    `&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,wind_speed_10m,wind_direction_10m` +
     `&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset` +
     `&timezone=auto&forecast_days=4`;
   const timezone = getConfig().display?.timezone || 'Europe/Riga';
@@ -99,6 +99,9 @@ export async function getWeather() {
       ok: true,
       city,
       temp,
+      feelsLike: num(c.apparent_temperature),
+      windSpeed: num(c.wind_speed_10m),
+      windDirection: num(c.wind_direction_10m),
       humidity: num(c.relative_humidity_2m),
       code,
       text: code === null ? '' : wmo(code),
