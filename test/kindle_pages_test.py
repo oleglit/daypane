@@ -57,11 +57,11 @@ class PageTests(unittest.TestCase):
         d.language = 'ru'
         d.page = 1
         local e1 = d:endpoints()
-        assert(#e1 == 2 and e1[1].url == d.cloud and e1[2].url:match('/api/screen%%?lang=ru&page=1$'))
+        assert(#e1 == 2 and e1[1].url == d.cloud and e1[2].url:match('/api/screen%?lang=ru&page=1$'))
         d.page = 2
         local e2 = d:endpoints()
         assert(#e2 == 1 and e2[1].url:match('page=2$'))
-        assert(d:manifestUrl(e2[1].url):match('/api/display%%?lang=ru&page=2$'))
+        assert(d:manifestUrl(e2[1].url):match('/api/display%?lang=ru&page=2$'))
         d.page = 3
         assert(#d:endpoints() == 1)
 
