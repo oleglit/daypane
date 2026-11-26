@@ -759,32 +759,40 @@ function KindleDash:buildScreen(img_path, w, h)
     }
     local container = InputContainer:new{ dimen = Geom:new{ w = w, h = h } }
     container[1] = img
-    -- 吃手势，防止 KOReader 的翻页/退出穿透到看板上。
-    container.ges_events = {
-        TapScroll = { GestureRange:new{ ges = "tap", range = function() return container.dimen end } },
-        SwipeScroll = { GestureRange:new{ ges = "swipe", range = function() return container.dimen end } },
-    }
-    function container:onTapScroll(_, ges)
-        if not (ges and ges.pos) then return true end
-        -- 顶部 10% 区域点击 = 退出（Kindle 无 Back 键，靠此关闭看板）。
-        -- 退出优先于翻页，顶部整条都是安全区，不会被误判成左右翻页。
-        if ges.pos.y < h * 0.1 then self:onClose(); return true end
-        -- 两侧各 22% 点按换页；中间 56% 留给内容，避免"想看仔细点"就跳页。
-        if ges.pos.x < w * 0.22 then dash:gotoPage(dash:currentPage() - 1)
-        elseif ges.pos.x > w * 0.78 then dash:gotoPage(dash:currentPage() + 1) end
-        return true
-    end
-    function container:onSwipeScroll(_, ges)
-        if not ges then return true end
-        -- 顶部 25% 下滑 = 退出
-        if ges.direction == "south" and ges.pos and ges.pos.y < h * 0.25 then
-            self:onClose(); return true
-        end
-        -- 左滑(west)下一页、右滑(east)上一页，和 KOReader 翻页方向一致。
-        if ges.direction == "west" then dash:gotoPage(dash:currentPage() + 1)
-        elseif ges.direction == "east" then dash:gotoPage(dash:currentPage() - 1) end
-        return true
-    end
+    -- Register explicit full-screen touch zones (the KOReader-supported API).
+    -- This consumes gestures before they can fall through to the file browser.
+    container:registerTouchZones({
+        {
+            id = "daypane_tap",
+            ges = "tap",
+            screen_zone = { ratio_x = 0, ratio_y = 0, ratio_w = 1, ratio_h = 1 },
+            handler = function(ges)
+                if not (ges and ges.pos) then return true end
+                -- Top 10% tap closes the dashboard.
+                if ges.pos.y < h * 0.1 then container:onClose(); return true end
+                -- Tap the left/right edge to change pages.
+                if ges.pos.x < w * 0.22 then dash:gotoPage(dash:currentPage() - 1)
+                elseif ges.pos.x > w * 0.78 then dash:gotoPage(dash:currentPage() + 1) end
+                return true
+            end,
+        },
+        {
+            id = "daypane_swipe",
+            ges = "swipe",
+            screen_zone = { ratio_x = 0, ratio_y = 0, ratio_w = 1, ratio_h = 1 },
+            handler = function(ges)
+                if not ges then return true end
+                -- Swipe down from the top quarter closes the dashboard.
+                if ges.direction == "south" and ges.pos and ges.pos.y < h * 0.25 then
+                    container:onClose(); return true
+                end
+                -- Swipe left for next page, right for previous page.
+                if ges.direction == "west" then dash:gotoPage(dash:currentPage() + 1)
+                elseif ges.direction == "east" then dash:gotoPage(dash:currentPage() - 1) end
+                return true
+            end,
+        },
+    })
     -- 关闭逻辑只有一份：Kindle 无返回键，退出入口是顶部点按/下滑 (onClose)
     -- 和机型的物理返回 (onBack)。以前两份复制粘贴，改一处漏一处就会
     -- 出现"关掉了但仍在常亮/仍在定时刷新"这类半关闭状态。
