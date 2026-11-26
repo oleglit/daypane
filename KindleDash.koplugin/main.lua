@@ -352,7 +352,12 @@ end
 function KindleDash:loadCloud()
     local ok, s = pcall(function() return LuaSettings:open(self:settingsPath()) end)
     if ok and s and s:has("cloud") then
-        local cloud = s:readSetting("cloud") or DEFAULT_CLOUD
+        -- Lua treats an empty string as truthy. A previously cleared cloud URL
+        -- must not suppress the built-in Pages source when no LAN host is configured.
+        local cloud = s:readSetting("cloud")
+        if type(cloud) ~= "string" or cloud:match("^%s*$") then
+            cloud = DEFAULT_CLOUD
+        end
         local legacy = "https://shenliucn-prog.github.io/shawn-kanban/"
         if cloud == legacy .. "screen.png" or cloud == legacy .. "screen-en.png"
             or cloud == "https://oleglit.github.io/daypane/screen.png"
