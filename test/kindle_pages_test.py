@@ -68,21 +68,25 @@ class PageTests(unittest.TestCase):
         -- 手势：左滑下一页、右滑上一页，首尾相接。
         d.page = 1
         local c = d:buildScreen('/tmp/never.png', 1072, 1448)
-        c:onSwipeScroll(nil, {direction='west', pos={x=500,y=700}})
+        local zones = c._test_touch_zones
+        assert(zones and #zones == 2, 'full-screen tap and swipe zones must be registered')
+        assert(zones[1].id == 'daypane_tap' and zones[2].id == 'daypane_swipe')
+        assert(zones[1].screen_zone.ratio_w == 1 and zones[2].screen_zone.ratio_h == 1)
+        zones[2].handler({direction='west', pos={x=500,y=700}})
         assert(d:currentPage() == 2 and d._opts.page == 2)
-        c:onSwipeScroll(nil, {direction='east', pos={x=500,y=700}})
+        zones[2].handler({direction='east', pos={x=500,y=700}})
         assert(d:currentPage() == 1)
-        c:onSwipeScroll(nil, {direction='east', pos={x=500,y=700}})
+        zones[2].handler({direction='east', pos={x=500,y=700}})
         assert(d:currentPage() == 3, 'wrapping backwards from page 1')
-        c:onSwipeScroll(nil, {direction='west', pos={x=500,y=700}})
+        zones[2].handler({direction='west', pos={x=500,y=700}})
         assert(d:currentPage() == 1, 'wrapping forwards from page 3')
 
         -- 点按两侧换页，中间 56% 不响应。
-        c:onTapScroll(nil, {pos={x=1000,y=700}})
+        zones[1].handler({pos={x=1000,y=700}})
         assert(d:currentPage() == 2)
-        c:onTapScroll(nil, {pos={x=100,y=700}})
+        zones[1].handler({pos={x=100,y=700}})
         assert(d:currentPage() == 1)
-        c:onTapScroll(nil, {pos={x=536,y=700}})
+        zones[1].handler({pos={x=536,y=700}})
         assert(d:currentPage() == 1, 'centre taps must not flip pages')
 
         -- 切页作废进行中的刷新，并重新发起一次（旧页的图不能盖到新页）。
@@ -94,10 +98,10 @@ class PageTests(unittest.TestCase):
 
         -- 顶部点按 / 下滑仍然是退出，且退出优先于翻页。
         d.page = 1
-        c:onTapScroll(nil, {pos={x=1000,y=50}})
+        zones[1].handler({pos={x=1000,y=50}})
         assert(d.dash_widget == nil, 'top tap must exit, not change page')
         d.dash_widget = {}
-        c:onSwipeScroll(nil, {direction='south', pos={x=100,y=100}})
+        zones[2].handler({direction='south', pos={x=100,y=100}})
         assert(d.dash_widget == nil, 'top swipe down must exit')
         print('PASS: page clamping, per-page caches, page-aware URLs, swipe/tap gestures, preemption, exit')
         ''')
