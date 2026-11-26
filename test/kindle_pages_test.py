@@ -59,7 +59,59 @@ class PageTests(unittest.TestCase):
         -- 局域网 URL 带页码；云端 Pages 只有页 1，页 2/3 不能挂云图源。
         d.page = 1
         local e1 = d:endpoints()
-        assert(#e1 == 2 and e1[1].url:match('/api/screen%?lang=ru&page=1$'))
+        assert(#e1 == 2 and e1[1].url == d.cloud and e1[2].url:match('/api/screen%?lang=ru&page=1
+        d.page = 2
+        local e2 = d:endpoints()
+        assert(#e2 == 1 and e2[1].url:match('page=2$'))
+        assert(d:manifestUrl(e2[1].url):match('/api/display%?lang=ru&page=2$'))
+        d.page = 3
+        assert(#d:endpoints() == 1)
+
+        -- 手势：左滑下一页、右滑上一页，首尾相接。
+        d.page = 1
+        local c = d:buildScreen('/tmp/never.png', 1072, 1448)
+        local zones = c._test_touch_zones
+        assert(zones and #zones == 2, 'full-screen tap and swipe zones must be registered')
+        assert(zones[1].id == 'daypane_tap' and zones[2].id == 'daypane_swipe')
+        assert(zones[1].screen_zone.ratio_w == 1 and zones[2].screen_zone.ratio_h == 1)
+        zones[2].handler({direction='west', pos={x=500,y=700}})
+        assert(d:currentPage() == 2 and d._opts.page == 2)
+        zones[2].handler({direction='east', pos={x=500,y=700}})
+        assert(d:currentPage() == 1)
+        zones[2].handler({direction='east', pos={x=500,y=700}})
+        assert(d:currentPage() == 3, 'wrapping backwards from page 1')
+        zones[2].handler({direction='west', pos={x=500,y=700}})
+        assert(d:currentPage() == 1, 'wrapping forwards from page 3')
+
+        -- 点按两侧换页，中间 56% 不响应。
+        zones[1].handler({pos={x=1000,y=700}})
+        assert(d:currentPage() == 2)
+        zones[1].handler({pos={x=100,y=700}})
+        assert(d:currentPage() == 1)
+        zones[1].handler({pos={x=536,y=700}})
+        assert(d:currentPage() == 1, 'centre taps must not flip pages')
+
+        -- 切页作废进行中的刷新，并重新发起一次（旧页的图不能盖到新页）。
+        local seen = d._refreshes
+        d._busy = true
+        assert(d:gotoPage(2) == true)
+        assert(d._busy == false and d._refreshes == seen + 1)
+        assert(d:gotoPage(2) == false and d._refreshes == seen + 1, 'same page is a no-op')
+
+        -- 顶部点按 / 下滑仍然是退出，且退出优先于翻页。
+        d.page = 1
+        zones[1].handler({pos={x=1000,y=50}})
+        assert(d.dash_widget == nil, 'top tap must exit, not change page')
+        d.dash_widget = {}
+        zones[2].handler({direction='south', pos={x=100,y=100}})
+        assert(d.dash_widget == nil, 'top swipe down must exit')
+        print('PASS: page clamping, per-page caches, page-aware URLs, swipe/tap gestures, preemption, exit')
+        ''')
+
+
+if __name__ == '__main__':
+    unittest.main()
+))
         d.page = 2
         local e2 = d:endpoints()
         assert(#e2 == 1 and e2[1].url:match('page=2$'))
