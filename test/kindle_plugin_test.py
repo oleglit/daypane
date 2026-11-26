@@ -258,7 +258,11 @@ for _, filename in ipairs({'screen.png', 'screen-en.png'}) do
     assert(d:loadCloud()==expected and saved.cloud==expected)
     assert(d:loadCloud()==expected, 'migration must be idempotent')
 end
-for _, url in ipairs({'', 'https://example.test/custom.png',
+saved={cloud=''}
+local default_cloud='https://oleglit.github.io/daypane/manifest.json'
+assert(d:loadCloud()==default_cloud and saved.cloud==default_cloud,
+    'blank saved cloud URL must restore the built-in Pages source')
+for _, url in ipairs({'https://example.test/custom.png',
     'https://shenliucn-prog.github.io/shawn-kanban/custom.png'}) do
     saved={cloud=url}; assert(d:loadCloud()==url and saved.cloud==url)
 end
