@@ -65,7 +65,7 @@ export async function getWeather() {
     const moonProps = moonResponse?.ok ? (moonResponse.data?.properties || {}) : {};
     const eventTime = (event) => {
       const value = event?.time;
-      return typeof value === 'string' && /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}/.test(value)
+      return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)
         ? value.slice(11, 16) : null;
     };
     const c = r.data.current || {};
