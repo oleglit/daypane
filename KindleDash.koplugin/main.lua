@@ -134,6 +134,7 @@ local EN = {
     ["电脑关机时从这儿取图。留空则只用局域网。"] = "Used when the computer is unavailable. Leave empty for LAN only.",
     ["https://用户名.github.io/daypane/screen.png"] = "https://username.github.io/daypane/screen-en.png",
     ["已清空云端地址"] = "Cloud URL cleared",
+    ["Открыть главную страницу"] = "Open main page",
     ["刷新看板"] = "Refresh dashboard",
     ["设置局域网服务器"] = "Set LAN server",
     ["设置云端图地址"] = "Set cloud image URL",
@@ -175,6 +176,7 @@ local RU = {
     ["云端图地址 (完整 URL)"] = "Адрес облачной картинки (полный URL)",
     ["电脑关机时从这儿取图。留空则只用局域网。"] = "Загрузка отсюда, когда компьютер выключен. Пустое поле — только локальная сеть.",
     ["已清空云端地址"] = "Адрес облака очищен",
+    ["Открыть главную страницу"] = "Открыть главную страницу",
     ["刷新看板"] = "Обновить дашборд",
     ["设置局域网服务器"] = "Настроить локальный сервер",
     ["设置云端图地址"] = "Настроить адрес облачной картинки",
@@ -904,6 +906,16 @@ end
 
 -- 左右滑 / 点按两侧换页。刻意不做自动轮播：这块屏是"想看才翻"的，
 -- 自己跳页会把放松用的副屏变成又一个催促源。
+function KindleDash:openHomePage()
+    -- The cloud dashboard is the primary page. Provide a menu action so users
+    -- can recover without relying on touch gestures in the image widget.
+    if self:currentPage() == 1 then
+        self:requestRefresh(true, true)
+        return true
+    end
+    return self:gotoPage(1)
+end
+
 function KindleDash:gotoPage(target)
     local n = math.floor(tonumber(target) or 1)
     -- 首尾相接：三页来回翻不用记方向，也不会撞到"滑不动"的死胡同。
@@ -1412,6 +1424,7 @@ function KindleDash:addToMainMenu(menu_items)
                 { text = "中文", checked_func = function() return self.language == "zh" end,
                   callback = function() self:setLanguage("zh") end },
             } },
+            { text = self:tr("Открыть главную страницу"), callback = function() self:openHomePage() end },
             { text = self:tr("刷新看板"), callback = function() self:safeRefresh() end },
             { text = self:tr("设置局域网服务器"), callback = function() self:setServerAddress() end },
             { text = self:tr("设置云端图地址"), callback = function() self:setCloudUrl() end },
