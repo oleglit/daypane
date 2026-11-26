@@ -684,9 +684,14 @@ def draw_weather(draw, d, y):
         wind_speed = fnum(w.get('windSpeed'))
         wind_degrees = w.get('windDirection')
         if isinstance(wind_degrees, (int, float)):
-            dirs = (['С', 'СВ', 'В', 'ЮВ', 'Ю', 'ЮЗ', 'З', 'СЗ'] if LANG == 'ru'
-                    else ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'])
-            wind_dir = dirs[int((wind_degrees % 360 + 22.5) // 45) % 8]
+            dirs = {
+                'ru': ['северный', 'северо-восточный', 'восточный', 'юго-восточный',
+                       'южный', 'юго-западный', 'западный', 'северо-западный'],
+                'en': ['north', 'northeast', 'east', 'southeast',
+                       'south', 'southwest', 'west', 'northwest'],
+                'zh': ['北风', '东北风', '东风', '东南风', '南风', '西南风', '西风', '西北风'],
+            }
+            wind_dir = dirs.get(LANG, dirs['ru'])[int((wind_degrees % 360 + 22.5) // 45) % 8]
         else:
             wind_dir = '—'
         if LANG == 'ru':
@@ -698,7 +703,7 @@ def draw_weather(draw, d, y):
         else:
             feels_label = '体感'
             wind_label = '风'
-        wind_line = '%s %s°  ·  %s: %s км/ч, %s' % (feels_label, feels, wind_label, wind_speed, wind_dir) if LANG == 'ru' else (
+        wind_line = '%s %s°  ·  %s: %s м/с, %s' % (feels_label, feels, wind_label, wind_speed, wind_dir) if LANG == 'ru' else (
             '%s %s°  ·  %s: %s km/h, %s' % (feels_label, feels, wind_label, wind_speed, wind_dir) if LANG == 'en' else
             '%s %s°  ·  %s: %s km/h, %s' % (feels_label, feels, wind_label, wind_speed, wind_dir))
         wind_font = f(F_SMALL + 1, bold=True)
@@ -758,7 +763,7 @@ def draw_market(draw, d, y):
 def draw_fx(draw, d, y):
     """Три валютных курса в одну строку, каждый в отдельной рамке."""
     fx = d.get('fx') or {}
-    y = draw_title(draw, y, 'Курсы валют', fx)
+    y = draw_title(draw, y, 'Курсы валют', fx) + 12  # небольшой отступ под заголовком
     if not fx.get('ok'):
         draw.text((PAD, y), 'Курсы валют временно недоступны', fill=GRAY, font=f(F_SMALL))
         return y + F_SMALL
