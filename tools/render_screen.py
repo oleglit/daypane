@@ -678,7 +678,34 @@ def draw_weather(draw, d, y):
         det = ('%s  H%s L%s  RH%s%%' if LANG == 'en' else ('%s  макс. %s° мин. %s°  влажн. %s%%' if LANG == 'ru' else '%s  高%s 低%s  湿%s%%')) % (w.get('text', ''), fnum(w.get('high')), fnum(w.get('low')), w.get('humidity', '?'))
         detail_font = f(F_SMALL + 3, bold=True)
         draw.text((PAD + tw1 + 24, y + 14), clip(draw, det, detail_font, CONTENT_W - tw1 - 24), fill=BLACK, font=detail_font)
-        bottom = draw.textbbox((PAD, y), t1, font=ft)[3] + 8
+        # Current apparent temperature and wind: Open-Meteo wind speed is km/h,
+        # direction is degrees clockwise from north.
+        feels = fnum(w.get('feelsLike'))
+        wind_speed = fnum(w.get('windSpeed'))
+        wind_degrees = w.get('windDirection')
+        if isinstance(wind_degrees, (int, float)):
+            dirs = (['С', 'СВ', 'В', 'ЮВ', 'Ю', 'ЮЗ', 'З', 'СЗ'] if LANG == 'ru'
+                    else ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'])
+            wind_dir = dirs[int((wind_degrees % 360 + 22.5) // 45) % 8]
+        else:
+            wind_dir = '—'
+        if LANG == 'ru':
+            feels_label = 'Ощущается как'
+            wind_label = 'Ветер'
+        elif LANG == 'en':
+            feels_label = 'Feels like'
+            wind_label = 'Wind'
+        else:
+            feels_label = '体感'
+            wind_label = '风'
+        wind_line = '%s %s°  ·  %s: %s км/ч, %s' % (feels_label, feels, wind_label, wind_speed, wind_dir) if LANG == 'ru' else (
+            '%s %s°  ·  %s: %s km/h, %s' % (feels_label, feels, wind_label, wind_speed, wind_dir) if LANG == 'en' else
+            '%s %s°  ·  %s: %s km/h, %s' % (feels_label, feels, wind_label, wind_speed, wind_dir))
+        wind_font = f(F_SMALL + 1, bold=True)
+        wind_y = y + F_BIG + 22
+        draw.text((PAD, wind_y), clip(draw, wind_line, wind_font, CONTENT_W), fill=BLACK, font=wind_font)
+        wind_box = draw.textbbox((PAD, wind_y), wind_line, font=wind_font)
+        bottom = max(draw.textbbox((PAD, y), t1, font=ft)[3], wind_box[3]) + 8
         days = (w.get('days') or [])[1:4]
         if days:
             ff = f(round(F_SMALL * 1.4), bold=True)  # уменьшено на 30%
