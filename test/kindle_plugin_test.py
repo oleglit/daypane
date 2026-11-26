@@ -36,7 +36,7 @@ local queue = {}
 UI = {queue=queue}
 function UI:scheduleIn(delay, fn) queue[fn] = delay end
 function UI:unschedule(fn) queue[fn] = nil end
-function UI:show() end
+function UI:show(widget) self.last_shown=widget end
 function UI:close() end
 function UI:suspend() end
 function UI:setDirty(widget, mode, region) self.last_dirty={widget=widget,mode=mode,region=region} end
@@ -263,4 +263,30 @@ for _, url in ipairs({'', 'https://example.test/custom.png',
     saved={cloud=url}; assert(d:loadCloud()==url and saved.cloud==url)
 end
 print('PASS: Russian dashboard default, legacy URL migration and custom URL preservation')
+''')
+
+lua.execute('''
+-- Fetch diagnostics must identify the failing stage, survive into the device
+-- status screen, and distinguish a manifest failure from an image failure.
+local d = Plugin:new{}
+d.language = 'ru'
+d.cacheDir=function() return '/tmp' end
+d.ensureCacheDir=function() end
+d.endpoints=function() return {{url='https://example.test/screen.png',name='云端'}} end
+d.manifestUrl=function() return 'https://example.test/manifest.json' end
+d.request=function(self, url)
+    if url:match('manifest') then return nil, 'HTTP/network: 404' end
+    return nil, 'HTTP/network: timeout'
+end
+local body, err = d:fetchScreen()
+assert(body == nil and err:match('HTTP/network: 404'))
+assert(d._fetch_stage == 'Загрузка не удалась')
+assert(d._fetch_diagnostic:match('HTTP/network: 404'))
+assert(d._fetch_diagnostic:match('HTTP/network: timeout'))
+d._last_attempt = os.time()
+d._last_error = err
+d:showStatus()
+assert(UI.last_shown and UI.last_shown.text:match('Этап загрузки: Загрузка не удалась'))
+assert(UI.last_shown.text:match('Подробности:'))
+print('PASS: cloud manifest/image failure diagnostics are shown in device status')
 ''')
