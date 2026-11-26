@@ -247,14 +247,14 @@ d.cacheDir=function() return '/tmp' end
 assert(d:loadLanguage() == 'ru')
 assert(saved.language == 'ru')
 d.language='ru'
-assert(d:loadCloud() == 'https://oleglit.github.io/daypane/screen.png')
+assert(d:loadCloud() == 'https://oleglit.github.io/daypane/manifest.json')
 saved={host='old-device'}
 assert(d:loadLanguage()=='ru')
 saved={}; G_reader_settings.readSetting=function() return 'zh_CN' end
 assert(d:loadLanguage()=='ru')
 for _, filename in ipairs({'screen.png', 'screen-en.png'}) do
     saved={cloud='https://shenliucn-prog.github.io/shawn-kanban/'..filename}
-    local expected='https://oleglit.github.io/daypane/screen.png'
+    local expected='https://oleglit.github.io/daypane/manifest.json'
     assert(d:loadCloud()==expected and saved.cloud==expected)
     assert(d:loadCloud()==expected, 'migration must be idempotent')
 end
